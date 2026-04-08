@@ -40,3 +40,4 @@ src/main/resources/*.properties
 ##MYSQL
 mysql_data/
 src/mysql_data/
+**/*.sql
