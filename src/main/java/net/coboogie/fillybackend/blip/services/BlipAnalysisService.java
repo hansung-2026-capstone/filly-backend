@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.clip.services;
+package net.coboogie.fillybackend.blip.services;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
