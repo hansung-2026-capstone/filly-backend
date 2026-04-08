@@ -36,5 +36,8 @@ out/
 ### VS Code ###
 .vscode/
 src/main/resources/*.properties
-mysql_data
+
+##MYSQL
+mysql_data/
+src/mysql_data/
 **/*.sql
