@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "monthly_stats", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"user_id", "year_month"})
+    @UniqueConstraint(columnNames = {"user_id", "record_month"})
 })
 @Getter
 @Setter
