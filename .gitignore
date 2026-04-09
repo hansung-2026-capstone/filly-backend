@@ -37,6 +37,9 @@ out/
 .vscode/
 src/main/resources/*.properties
 
+### Local env ###
+.env.local
+
 ##MYSQL
 mysql_data/
 src/mysql_data/

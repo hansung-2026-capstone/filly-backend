@@ -1,0 +1,27 @@
+.gcloudignore
+.git
+.gitignore
+
+# Build artifacts
+build/
+.gradle/
+out/
+
+# IDE files
+.idea/
+*.iws
+*.iml
+*.ipr
+.classpath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+bin/
+
+# Local data
+mysql_data/
+**/*.sql
+
+# Local properties (프로덕션에서 불필요)
+src/main/resources/application-local.properties
