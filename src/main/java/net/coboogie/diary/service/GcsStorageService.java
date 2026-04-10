@@ -1,0 +1,45 @@
+package net.coboogie.diary.service;
+
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Storage;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.UUID;
+
+/**
+ * Google Cloud Storage(GCS) 파일 업로드 서비스.
+ * <p>
+ * 버킷명은 {@code spring.cloud.gcp.storage.bucket} 프로퍼티에서 읽으며,
+ * GCP 인증은 Cloud Run의 서비스 계정 또는 ADC(Application Default Credentials)로 처리된다.
+ */
+@Service
+@RequiredArgsConstructor
+public class GcsStorageService {
+
+    private final Storage storage;
+
+    @Value("${spring.cloud.gcp.storage.bucket}")
+    private String bucketName;
+
+    /**
+     * 파일을 GCS에 업로드하고 공개 접근 가능한 URL을 반환한다.
+     *
+     * @param file   업로드할 Multipart 파일
+     * @param folder GCS 내 저장 경로 (예: {@code "diary/images"})
+     * @return 업로드된 파일의 GCS 공개 URL
+     * @throws IOException 파일 읽기 또는 GCS 업로드 실패 시
+     */
+    public String upload(MultipartFile file, String folder) throws IOException {
+        // 파일명 충돌 방지를 위해 UUID 접두사 적용
+        String blobName = folder + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobName)
+                .setContentType(file.getContentType())
+                .build();
+        storage.create(blobInfo, file.getBytes());
+        return "https://storage.googleapis.com/" + bucketName + "/" + blobName;
+    }
+}
