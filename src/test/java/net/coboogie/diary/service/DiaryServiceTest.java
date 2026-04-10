@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -244,5 +245,53 @@ class DiaryServiceTest {
         assertThatThrownBy(() -> sut.getDiary(diaryId, userId))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining("일기를 찾을 수 없습니다");
+    }
+
+    // ─────────────────────────────────────────────────────
+    // getDiariesByMonth 테스트
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("해당 월에 일기가 있으면 작성일 오름차순 목록 반환")
+    void givenDiariesInMonth_whenGetDiariesByMonth_thenReturnSortedList() {
+        // given
+        Long userId = 1L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+
+        DiaryEntryVO diary1 = DiaryEntryVO.builder()
+                .id(1L).user(mockUser).rawContent("첫째 날").writtenAt(LocalDate.of(2026, 4, 1))
+                .mode(DiaryEntryVO.Mode.DEFAULT).createdAt(LocalDateTime.now()).build();
+        DiaryEntryVO diary2 = DiaryEntryVO.builder()
+                .id(2L).user(mockUser).rawContent("셋째 날").writtenAt(LocalDate.of(2026, 4, 3))
+                .mode(DiaryEntryVO.Mode.DEFAULT).createdAt(LocalDateTime.now()).build();
+
+        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+                userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
+                .willReturn(List.of(diary1, diary2));
+
+        // when
+        List<DiaryResponse> result = sut.getDiariesByMonth(userId, 2026, 4);
+
+        // then
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).writtenAt()).isEqualTo(LocalDate.of(2026, 4, 1));
+        assertThat(result.get(1).writtenAt()).isEqualTo(LocalDate.of(2026, 4, 3));
+    }
+
+    @Test
+    @DisplayName("해당 월에 일기가 없으면 빈 목록 반환")
+    void givenNoDiariesInMonth_whenGetDiariesByMonth_thenReturnEmptyList() {
+        // given
+        Long userId = 1L;
+
+        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+                userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
+                .willReturn(Collections.emptyList());
+
+        // when
+        List<DiaryResponse> result = sut.getDiariesByMonth(userId, 2026, 4);
+
+        // then
+        assertThat(result).isEmpty();
     }
 }
