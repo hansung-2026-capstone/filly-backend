@@ -18,11 +18,12 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
  * <p>
- * 구현 완료: AI 초안 생성, 일기 저장
+ * 구현 완료: AI 초안 생성, 일기 저장, 단건 조회
  * 예정 구현: 목록 조회, 단건 조회, 수정, 삭제
  */
 @Service
@@ -59,6 +60,22 @@ public class DiaryService {
 
         DiaryEntryVO saved = diaryEntryRepository.save(diary);
         return DiaryResponse.from(saved);
+    }
+
+    /**
+     * 일기 단건을 조회하여 반환한다.
+     * <p>
+     * 본인 소유의 일기만 조회할 수 있다. 존재하지 않거나 다른 사용자 소유이면 예외가 발생한다.
+     *
+     * @param diaryId 조회할 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @return 조회된 일기 응답 DTO
+     * @throws NoSuchElementException 일기가 존재하지 않거나 본인 소유가 아닌 경우
+     */
+    public DiaryResponse getDiary(Long diaryId, Long userId) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        return DiaryResponse.from(diary);
     }
 
     /**
