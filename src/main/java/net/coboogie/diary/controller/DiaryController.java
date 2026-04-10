@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import net.coboogie.common.response.ApiResponse;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
+import net.coboogie.diary.dto.DiaryResponse;
+import net.coboogie.diary.dto.DiarySaveCommand;
+import net.coboogie.diary.dto.DiarySaveRequest;
 import net.coboogie.diary.service.DiaryService;
 import net.coboogie.fillybackend.vo.DiaryEntryVO;
 import org.springframework.http.MediaType;
@@ -76,6 +79,41 @@ public class DiaryController {
                 .build();
 
         DiaryDraftResponse response = diaryService.createDraft(command);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * 일기 저장 API.
+     * <p>
+     * JSON 바디로 일기 내용을 받아 DB에 저장한다.
+     * DEFAULT 모드: 텍스트만 저장. IMAGE/IMAGE_TEXT 모드는 추후 미디어 업로드 흐름과 연동된다.
+     *
+     * @param userId  JWT에서 추출한 인증 사용자 ID
+     * @param request 저장할 일기 내용 (rawContent, emoji, writtenAt, mode)
+     * @return 저장된 일기 정보
+     */
+    @PostMapping
+    @Operation(
+            summary = "일기 저장",
+            description = "일기를 DB에 저장합니다. DEFAULT 모드는 텍스트를 저장합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "저장 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    public ResponseEntity<ApiResponse<DiaryResponse>> saveDiary(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody DiarySaveRequest request
+    ) {
+        DiarySaveCommand command = DiarySaveCommand.builder()
+                .userId(userId)
+                .rawContent(request.rawContent())
+                .emoji(request.emoji())
+                .writtenAt(request.writtenAt())
+                .mode(request.mode())
+                .build();
+
+        DiaryResponse response = diaryService.saveDiary(command);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }
