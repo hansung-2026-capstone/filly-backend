@@ -83,6 +83,34 @@ public class DiaryController {
     }
 
     /**
+     * 월별 일기 목록 조회 API.
+     * <p>
+     * year, month 쿼리 파라미터로 조회 월을 지정한다. 본인 일기만 반환된다.
+     *
+     * @param userId JWT에서 추출한 인증 사용자 ID
+     * @param year   조회 연도 (예: 2026)
+     * @param month  조회 월 (1~12)
+     * @return 해당 월의 일기 목록 (작성일 오름차순)
+     */
+    @GetMapping
+    @Operation(
+            summary = "월별 일기 목록 조회",
+            description = "year, month 파라미터로 해당 월의 일기 목록을 조회합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    public ResponseEntity<ApiResponse<List<DiaryResponse>>> getDiariesByMonth(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        List<DiaryResponse> responses = diaryService.getDiariesByMonth(userId, year, month);
+        return ResponseEntity.ok(ApiResponse.ok(responses));
+    }
+
+    /**
      * 일기 단건 조회 API.
      * <p>
      * 본인 소유의 일기만 조회할 수 있다.
