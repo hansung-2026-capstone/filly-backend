@@ -5,6 +5,7 @@ import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryResponse;
+import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.vo.DiaryEntryVO;
 import net.coboogie.vo.UserVO;
@@ -293,5 +294,74 @@ class DiaryServiceTest {
 
         // then
         assertThat(result).isEmpty();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // updateDiary 테스트
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("rawContent와 emoji 모두 수정 시 변경된 값으로 DiaryResponse 반환")
+    void givenUpdateRequest_whenUpdateDiary_thenReturnUpdatedResponse() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 10L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(diaryId).user(mockUser)
+                .rawContent("기존 내용").emoji("😐")
+                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .createdAt(LocalDateTime.now()).build();
+
+        DiaryUpdateRequest request = new DiaryUpdateRequest("수정된 내용", "😊");
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+
+        // when
+        DiaryResponse response = sut.updateDiary(diaryId, userId, request);
+
+        // then
+        assertThat(response.rawContent()).isEqualTo("수정된 내용");
+        assertThat(response.emoji()).isEqualTo("😊");
+        assertThat(response.updatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("rawContent만 수정 시 emoji는 기존 값 유지")
+    void givenRawContentOnly_whenUpdateDiary_thenEmojiUnchanged() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 10L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(diaryId).user(mockUser)
+                .rawContent("기존 내용").emoji("😐")
+                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .createdAt(LocalDateTime.now()).build();
+
+        DiaryUpdateRequest request = new DiaryUpdateRequest("수정된 내용", null);
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+
+        // when
+        DiaryResponse response = sut.updateDiary(diaryId, userId, request);
+
+        // then
+        assertThat(response.rawContent()).isEqualTo("수정된 내용");
+        assertThat(response.emoji()).isEqualTo("😐");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 일기 수정 시 NoSuchElementException 발생")
+    void givenNonExistentDiary_whenUpdateDiary_thenThrowNoSuchElementException() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 999L;
+        DiaryUpdateRequest request = new DiaryUpdateRequest("내용", "😊");
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> sut.updateDiary(diaryId, userId, request))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessageContaining("일기를 찾을 수 없습니다");
     }
 }
