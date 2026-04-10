@@ -1,7 +1,7 @@
 package net.coboogie.auth.service;
 
 import net.coboogie.auth.dto.CustomOAuth2User;
-import net.coboogie.fillybackend.vo.UserVO;
+import net.coboogie.vo.UserVO;
 import net.coboogie.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

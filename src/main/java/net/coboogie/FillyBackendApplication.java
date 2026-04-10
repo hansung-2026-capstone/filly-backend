@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend;
+package net.coboogie;
 
 import com.google.cloud.spring.autoconfigure.pubsub.GcpPubSubAutoConfiguration;
 import org.springframework.boot.SpringApplication;

@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.vo;
+package net.coboogie.vo;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -7,30 +7,24 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "archives")
+@Table(name = "sub_categories")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ArchiveVO {
+public class SubCategoryVO {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private UserVO user;
+    @JoinColumn(name = "main_category_id", nullable = false)
+    private MainCategoryVO mainCategory;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, length = 50)
     private String name;
-
-    @Column(name = "icon")
-    private String icon;
-
-    @Column(name = "color")
-    private String color;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

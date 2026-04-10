@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.blip.dto;
+package net.coboogie.blip.dto;
 
 import lombok.Getter;
 import lombok.Setter;

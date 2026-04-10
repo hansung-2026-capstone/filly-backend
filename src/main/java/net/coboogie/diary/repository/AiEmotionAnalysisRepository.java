@@ -1,6 +1,6 @@
 package net.coboogie.diary.repository;
 
-import net.coboogie.fillybackend.vo.AiEmotionAnalysisVO;
+import net.coboogie.vo.AiEmotionAnalysisVO;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**

@@ -11,7 +11,7 @@ import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiarySaveRequest;
 import net.coboogie.diary.service.DiaryService;
-import net.coboogie.fillybackend.vo.DiaryEntryVO;
+import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

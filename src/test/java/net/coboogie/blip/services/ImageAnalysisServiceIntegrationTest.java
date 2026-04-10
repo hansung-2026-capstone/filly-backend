@@ -1,6 +1,6 @@
-package net.coboogie.fillybackend.blip.services;
+package net.coboogie.blip.services;
 
-import net.coboogie.fillybackend.blip.dto.ImageAnalysisResult;
+import net.coboogie.blip.dto.ImageAnalysisResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

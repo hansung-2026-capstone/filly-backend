@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend;
+package net.coboogie;
 
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;

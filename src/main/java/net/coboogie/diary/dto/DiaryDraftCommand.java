@@ -1,7 +1,7 @@
 package net.coboogie.diary.dto;
 
 import lombok.Builder;
-import net.coboogie.fillybackend.vo.DiaryEntryVO;
+import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;

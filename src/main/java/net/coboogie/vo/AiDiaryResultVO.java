@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.vo;
+package net.coboogie.vo;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -6,17 +6,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "diary_media")
+@Table(name = "ai_diary_results")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DiaryMediaVO {
-
-    public enum Type {
-        IMAGE, VIDEO
-    }
+public class AiDiaryResultVO {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,15 +22,8 @@ public class DiaryMediaVO {
     @JoinColumn(name = "diary_id", nullable = false)
     private DiaryEntryVO diary;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
-    private Type type;
-
-    @Column(name = "gcs_url", nullable = false, columnDefinition = "TEXT")
-    private String gcsUrl;
-
-    @Column(name = "file_size")
-    private Integer fileSize;
+    @Column(name = "generated_text", nullable = false, columnDefinition = "TEXT")
+    private String generatedText;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

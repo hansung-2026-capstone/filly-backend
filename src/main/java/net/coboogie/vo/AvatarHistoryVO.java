@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.vo;
+package net.coboogie.vo;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -6,17 +6,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "bg_image_history")
+@Table(name = "avatar_history")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class BgImageHistoryVO {
-
-    public enum TriggerType {
-        AUTO_INIT, USER_REQUEST
-    }
+public class AvatarHistoryVO {
 
     public enum Status {
         PENDING, COMPLETED, FAILED
@@ -30,12 +26,12 @@ public class BgImageHistoryVO {
     @JoinColumn(name = "user_id", nullable = false)
     private UserVO user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "persona_snapshot_id", nullable = false)
+    private PersonaSnapshotVO personaSnapshot;
+
     @Column(name = "gcs_url", nullable = false, columnDefinition = "TEXT")
     private String gcsUrl;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "trigger_type", nullable = false)
-    private TriggerType triggerType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.config;
+package net.coboogie.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
