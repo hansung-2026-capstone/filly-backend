@@ -1,31 +1,32 @@
-package net.coboogie.fillybackend.vo;
+package net.coboogie.vo;
 
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ai_diary_results")
+@Table(name = "main_categories")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AiDiaryResultVO {
+public class MainCategoryVO {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "diary_id", nullable = false)
-    private DiaryEntryVO diary;
-
-    @Column(name = "generated_text", nullable = false, columnDefinition = "TEXT")
-    private String generatedText;
+    @Column(name = "name", nullable = false, unique = true, length = 50)
+    private String name;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

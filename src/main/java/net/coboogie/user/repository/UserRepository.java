@@ -1,8 +1,7 @@
 package net.coboogie.user.repository;
 
-import net.coboogie.fillybackend.vo.UserVO;
+import net.coboogie.vo.UserVO;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 

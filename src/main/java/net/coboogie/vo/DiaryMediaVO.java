@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.vo;
+package net.coboogie.vo;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -6,20 +6,16 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "share_contents")
+@Table(name = "diary_media")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ShareContentVO {
+public class DiaryMediaVO {
 
     public enum Type {
-        ID_CARD, RECEIPT, KEYWORD_CLOUD
-    }
-
-    public enum Status {
-        PENDING, COMPLETED, FAILED
+        IMAGE, VIDEO
     }
 
     @Id
@@ -27,8 +23,8 @@ public class ShareContentVO {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private UserVO user;
+    @JoinColumn(name = "diary_id", nullable = false)
+    private DiaryEntryVO diary;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false)
@@ -37,9 +33,8 @@ public class ShareContentVO {
     @Column(name = "gcs_url", nullable = false, columnDefinition = "TEXT")
     private String gcsUrl;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    private Status status;
+    @Column(name = "file_size")
+    private Integer fileSize;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

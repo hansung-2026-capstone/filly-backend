@@ -1,6 +1,6 @@
 package net.coboogie.diary.dto;
 
-import net.coboogie.fillybackend.vo.DiaryEntryVO;
+import net.coboogie.vo.DiaryEntryVO;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

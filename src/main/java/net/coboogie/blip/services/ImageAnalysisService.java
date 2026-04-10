@@ -1,8 +1,8 @@
-package net.coboogie.fillybackend.blip.services;
+package net.coboogie.blip.services;
 
 import lombok.RequiredArgsConstructor;
-import net.coboogie.fillybackend.blip.dto.BlipAnalyzeResponse;
-import net.coboogie.fillybackend.blip.dto.ImageAnalysisResult;
+import net.coboogie.blip.dto.BlipAnalyzeResponse;
+import net.coboogie.blip.dto.ImageAnalysisResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;

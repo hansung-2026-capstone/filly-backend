@@ -1,6 +1,6 @@
 package net.coboogie.diary.repository;
 
-import net.coboogie.fillybackend.vo.DiaryEntryVO;
+import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

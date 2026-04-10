@@ -1,4 +1,4 @@
-package net.coboogie.fillybackend.vo;
+package net.coboogie.vo;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -6,13 +6,17 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "avatar_history")
+@Table(name = "share_contents")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AvatarHistoryVO {
+public class ShareContentVO {
+
+    public enum Type {
+        ID_CARD, RECEIPT, KEYWORD_CLOUD
+    }
 
     public enum Status {
         PENDING, COMPLETED, FAILED
@@ -26,9 +30,9 @@ public class AvatarHistoryVO {
     @JoinColumn(name = "user_id", nullable = false)
     private UserVO user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "persona_snapshot_id", nullable = false)
-    private PersonaSnapshotVO personaSnapshot;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false)
+    private Type type;
 
     @Column(name = "gcs_url", nullable = false, columnDefinition = "TEXT")
     private String gcsUrl;
@@ -38,6 +42,6 @@ public class AvatarHistoryVO {
     private Status status;
 
     @CreationTimestamp
-    @Column(name = "generated_at", nullable = false, updatable = false)
-    private LocalDateTime generatedAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }
