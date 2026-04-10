@@ -15,6 +15,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,7 +25,7 @@ import java.util.NoSuchElementException;
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
  * <p>
- * 구현 완료: AI 초안 생성, 일기 저장, 단건 조회
+ * 구현 완료: AI 초안 생성, 일기 저장, 단건 조회, 월별 목록 조회
  * 예정 구현: 목록 조회, 단건 조회, 수정, 삭제
  */
 @Service
@@ -76,6 +78,28 @@ public class DiaryService {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
         return DiaryResponse.from(diary);
+    }
+
+    /**
+     * 특정 연월의 일기 목록을 조회하여 반환한다.
+     * <p>
+     * 해당 월의 첫째 날부터 마지막 날까지 범위로 조회하며, 작성일 오름차순으로 정렬된다.
+     *
+     * @param userId JWT 인증 사용자 ID
+     * @param year   조회 연도
+     * @param month  조회 월 (1~12)
+     * @return 해당 월의 일기 목록 (작성일 오름차순)
+     */
+    public List<DiaryResponse> getDiariesByMonth(Long userId, int year, int month) {
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
+
+        return diaryEntryRepository
+                .findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
+                .stream()
+                .map(DiaryResponse::from)
+                .toList();
     }
 
     /**
