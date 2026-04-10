@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -194,5 +195,54 @@ class DiaryServiceTest {
                 .hasMessageContaining("사용자를 찾을 수 없습니다");
 
         verifyNoInteractions(diaryEntryRepository);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // getDiary 테스트
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("본인 소유 일기 조회 시 DiaryResponse 반환")
+    void givenValidDiaryId_whenGetDiary_thenReturnDiaryResponse() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 10L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(diaryId)
+                .user(mockUser)
+                .rawContent("오늘은 즐거운 하루였다.")
+                .emoji("😊")
+                .writtenAt(WRITTEN_AT)
+                .mode(DiaryEntryVO.Mode.DEFAULT)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+
+        // when
+        DiaryResponse response = sut.getDiary(diaryId, userId);
+
+        // then
+        assertThat(response.id()).isEqualTo(diaryId);
+        assertThat(response.rawContent()).isEqualTo("오늘은 즐거운 하루였다.");
+        assertThat(response.emoji()).isEqualTo("😊");
+        assertThat(response.writtenAt()).isEqualTo(WRITTEN_AT);
+        assertThat(response.mode()).isEqualTo(DiaryEntryVO.Mode.DEFAULT);
+    }
+
+    @Test
+    @DisplayName("존재하지 않거나 타인 소유 일기 조회 시 NoSuchElementException 발생")
+    void givenNonExistentDiaryId_whenGetDiary_thenThrowNoSuchElementException() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 999L;
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> sut.getDiary(diaryId, userId))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessageContaining("일기를 찾을 수 없습니다");
     }
 }
