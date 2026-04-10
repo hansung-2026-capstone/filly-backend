@@ -202,4 +202,31 @@ public class DiaryController {
         DiaryResponse response = diaryService.updateDiary(id, userId, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    /**
+     * 일기 삭제 API.
+     * <p>
+     * 본인 소유의 일기만 삭제 가능하다.
+     *
+     * @param userId JWT에서 추출한 인증 사용자 ID
+     * @param id     삭제할 일기 ID
+     * @return 데이터 없는 성공 응답
+     */
+    @DeleteMapping("/{id}")
+    @Operation(
+            summary = "일기 삭제",
+            description = "일기를 삭제합니다. 본인 소유의 일기만 삭제 가능합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+    })
+    public ResponseEntity<ApiResponse<Void>> deleteDiary(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id
+    ) {
+        diaryService.deleteDiary(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
 }
