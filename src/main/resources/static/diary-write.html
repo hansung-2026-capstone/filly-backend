@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filly - 일기 작성</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f0eb;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 16px;
+      min-height: 100vh;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .back { color: #6c5ce7; text-decoration: none; font-size: 0.9rem; display: inline-block; margin-bottom: 20px; }
+    h1 { font-size: 1.3rem; color: #2d2d2d; margin-bottom: 24px; }
+    label { display: block; font-size: 0.82rem; font-weight: 600; color: #555; margin-bottom: 6px; margin-top: 16px; }
+    input[type="date"],
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: #2d2d2d;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #6c5ce7; }
+    textarea { resize: vertical; min-height: 160px; line-height: 1.6; }
+    .emoji-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .emoji-btn {
+      font-size: 1.5rem;
+      background: #f5f0eb;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 4px 6px;
+      cursor: pointer;
+      transition: border-color .1s;
+    }
+    .emoji-btn.selected { border-color: #6c5ce7; }
+    .btn-submit {
+      display: block;
+      width: 100%;
+      margin-top: 28px;
+      padding: 14px;
+      background: #6c5ce7;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-submit:hover { opacity: 0.88; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    #result {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      display: none;
+      word-break: break-all;
+    }
+    #result.success { background: #eafaf1; color: #1d7a4a; border: 1px solid #a8e6c3; }
+    #result.error   { background: #fef0f0; color: #b33232; border: 1px solid #f5b8b8; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <a class="back" href="/home.html">← 홈으로</a>
+  <h1>📝 일기 작성</h1>
+
+  <label>작성 날짜</label>
+  <input type="date" id="writtenAt" />
+
+  <label>모드</label>
+  <select id="mode">
+    <option value="DEFAULT">DEFAULT (텍스트)</option>
+    <option value="IMAGE">IMAGE (사진만)</option>
+    <option value="IMAGE_TEXT">IMAGE_TEXT (텍스트 + 사진)</option>
+  </select>
+
+  <label>오늘의 기분 이모지</label>
+  <div class="emoji-row" id="emojiRow">
+    <button class="emoji-btn" data-emoji="😊">😊</button>
+    <button class="emoji-btn" data-emoji="😢">😢</button>
+    <button class="emoji-btn" data-emoji="😠">😠</button>
+    <button class="emoji-btn" data-emoji="😌">😌</button>
+    <button class="emoji-btn" data-emoji="😨">😨</button>
+    <button class="emoji-btn" data-emoji="🥰">🥰</button>
+    <button class="emoji-btn" data-emoji="😴">😴</button>
+    <button class="emoji-btn" data-emoji="🤩">🤩</button>
+  </div>
+  <input type="text" id="emoji" placeholder="직접 입력하거나 위에서 선택" style="margin-top:8px" />
+
+  <label>일기 내용</label>
+  <textarea id="rawContent" placeholder="오늘 있었던 일을 자유롭게 기록해보세요..."></textarea>
+
+  <button class="btn-submit" id="submitBtn" onclick="submitDiary()">저장하기</button>
+
+  <div id="result"></div>
+</div>
+
+<script>
+  // 오늘 날짜 기본값 설정
+  (function setDefaults() {
+    const today = new Date();
+    const yyyy  = today.getFullYear();
+    const mm    = String(today.getMonth() + 1).padStart(2, '0');
+    const dd    = String(today.getDate()).padStart(2, '0');
+    document.getElementById('writtenAt').value = `${yyyy}-${mm}-${dd}`;
+
+    // 토큰 없으면 홈으로
+    if (!localStorage.getItem('accessToken')) {
+      alert('로그인이 필요합니다.');
+      location.href = '/home.html';
+    }
+  })();
+
+  // 이모지 버튼 선택 처리
+  document.getElementById('emojiRow').addEventListener('click', function(e) {
+    const btn = e.target.closest('.emoji-btn');
+    if (!btn) return;
+    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('emoji').value = btn.dataset.emoji;
+  });
+
+  async function submitDiary() {
+    const accessToken = localStorage.getItem('accessToken');
+    const writtenAt   = document.getElementById('writtenAt').value;
+    const mode        = document.getElementById('mode').value;
+    const rawContent  = document.getElementById('rawContent').value.trim();
+    const emoji       = document.getElementById('emoji').value.trim() || null;
+
+    if (!writtenAt) { showResult('error', '날짜를 입력해주세요.'); return; }
+    if (!rawContent) { showResult('error', '일기 내용을 입력해주세요.'); return; }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '저장 중…';
+
+    try {
+      const res = await fetch('/api/v1/diaries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + accessToken
+        },
+        body: JSON.stringify({ rawContent, emoji, writtenAt, mode })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        showResult('success',
+          `✅ 저장 성공!\n` +
+          `ID: ${data.data.id}\n` +
+          `날짜: ${data.data.writtenAt}\n` +
+          `모드: ${data.data.mode}\n` +
+          `내용: ${(data.data.rawContent || '').slice(0, 60)}…`
+        );
+        document.getElementById('rawContent').value = '';
+      } else {
+        showResult('error', '저장 실패: ' + (data.message || res.status));
+      }
+    } catch (err) {
+      showResult('error', '네트워크 오류: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '저장하기';
+    }
+  }
+
+  function showResult(type, msg) {
+    const el = document.getElementById('result');
+    el.className = type;
+    el.style.display = 'block';
+    el.textContent = msg;
+  }
+</script>
+</body>
+</html>

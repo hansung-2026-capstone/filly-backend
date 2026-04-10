@@ -34,7 +34,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/oauth2/**", "/login/**",            // OAuth2, 로그인
                                 "/swagger-ui/**", "/swagger-ui.html", // Swagger UI
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/*.html", "/css/**", "/js/**"        // 정적 HTML 페이지
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

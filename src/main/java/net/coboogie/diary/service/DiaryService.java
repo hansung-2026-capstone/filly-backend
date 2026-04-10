@@ -4,6 +4,12 @@ import lombok.RequiredArgsConstructor;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
+import net.coboogie.diary.dto.DiarySaveCommand;
+import net.coboogie.diary.dto.DiaryResponse;
+import net.coboogie.diary.repository.DiaryEntryRepository;
+import net.coboogie.fillybackend.vo.DiaryEntryVO;
+import net.coboogie.fillybackend.vo.UserVO;
+import net.coboogie.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,8 +22,8 @@ import java.util.List;
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
  * <p>
- * 현재 구현: AI 초안 생성 ({@code POST /api/v1/diaries/draft})
- * 예정 구현: 최종 저장, 목록 조회, 별점 수정, 삭제
+ * 구현 완료: AI 초안 생성, 일기 저장
+ * 예정 구현: 목록 조회, 단건 조회, 수정, 삭제
  */
 @Service
 @RequiredArgsConstructor
@@ -26,6 +32,34 @@ public class DiaryService {
     private final GcsStorageService gcsStorageService;
     private final AiDraftGeneratorService aiDraftGeneratorService;
     private final SpeechToTextService speechToTextService;
+    private final UserRepository userRepository;
+    private final DiaryEntryRepository diaryEntryRepository;
+
+    /**
+     * 일기를 DB에 저장하고 저장된 결과를 반환한다.
+     * <p>
+     * DEFAULT 모드: rawContent(텍스트)를 diary_entries에 저장한다.
+     * 작성 날짜, 이모지, 모드를 함께 저장하며, 별점은 초기에 설정되지 않는다.
+     *
+     * @param command userId, rawContent, emoji, writtenAt, mode를 담은 커맨드 객체
+     * @return 저장된 일기의 응답 DTO
+     * @throws IllegalArgumentException 존재하지 않는 userId인 경우
+     */
+    public DiaryResponse saveDiary(DiarySaveCommand command) {
+        UserVO user = userRepository.findById(command.userId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + command.userId()));
+
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .user(user)
+                .rawContent(command.rawContent())
+                .emoji(command.emoji())
+                .writtenAt(command.writtenAt())
+                .mode(command.mode())
+                .build();
+
+        DiaryEntryVO saved = diaryEntryRepository.save(diary);
+        return DiaryResponse.from(saved);
+    }
 
     /**
      * 사용자 입력(텍스트/이미지/음성)을 받아 AI 일기 초안을 생성한다.
