@@ -6,23 +6,29 @@ import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryResponse;
+import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.vo.DiaryEntryVO;
 import net.coboogie.vo.UserVO;
 import net.coboogie.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
  * <p>
- * 구현 완료: AI 초안 생성, 일기 저장
+ * 구현 완료: AI 초안 생성, 일기 저장, 단건 조회, 월별 목록 조회, 수정, 삭제
  * 예정 구현: 목록 조회, 단건 조회, 수정, 삭제
  */
 @Service
@@ -59,6 +65,87 @@ public class DiaryService {
 
         DiaryEntryVO saved = diaryEntryRepository.save(diary);
         return DiaryResponse.from(saved);
+    }
+
+    /**
+     * 일기 단건을 조회하여 반환한다.
+     * <p>
+     * 본인 소유의 일기만 조회할 수 있다. 존재하지 않거나 다른 사용자 소유이면 예외가 발생한다.
+     *
+     * @param diaryId 조회할 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @return 조회된 일기 응답 DTO
+     * @throws NoSuchElementException 일기가 존재하지 않거나 본인 소유가 아닌 경우
+     */
+    public DiaryResponse getDiary(Long diaryId, Long userId) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        return DiaryResponse.from(diary);
+    }
+
+    /**
+     * 특정 연월의 일기 목록을 조회하여 반환한다.
+     * <p>
+     * 해당 월의 첫째 날부터 마지막 날까지 범위로 조회하며, 작성일 오름차순으로 정렬된다.
+     *
+     * @param userId JWT 인증 사용자 ID
+     * @param year   조회 연도
+     * @param month  조회 월 (1~12)
+     * @return 해당 월의 일기 목록 (작성일 오름차순)
+     */
+    public List<DiaryResponse> getDiariesByMonth(Long userId, int year, int month) {
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
+
+        return diaryEntryRepository
+                .findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
+                .stream()
+                .map(DiaryResponse::from)
+                .toList();
+    }
+
+    /**
+     * 일기의 rawContent와 emoji를 수정하고 수정된 결과를 반환한다.
+     * <p>
+     * 본인 소유의 일기만 수정할 수 있다. 각 필드가 null이면 기존 값을 유지한다.
+     *
+     * @param diaryId 수정할 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @param request 수정할 rawContent, emoji
+     * @return 수정된 일기 응답 DTO
+     * @throws NoSuchElementException 일기가 존재하지 않거나 본인 소유가 아닌 경우
+     */
+    @Transactional
+    public DiaryResponse updateDiary(Long diaryId, Long userId, DiaryUpdateRequest request) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+
+        if (request.rawContent() != null) {
+            diary.setRawContent(request.rawContent());
+        }
+        if (request.emoji() != null) {
+            diary.setEmoji(request.emoji());
+        }
+        diary.setUpdatedAt(LocalDateTime.now());
+
+        return DiaryResponse.from(diary);
+    }
+
+    /**
+     * 일기를 삭제한다.
+     * <p>
+     * 본인 소유의 일기만 삭제할 수 있다. 존재하지 않거나 다른 사용자 소유이면 예외가 발생한다.
+     *
+     * @param diaryId 삭제할 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @throws NoSuchElementException 일기가 존재하지 않거나 본인 소유가 아닌 경우
+     */
+    @Transactional
+    public void deleteDiary(Long diaryId, Long userId) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        diaryEntryRepository.delete(diary);
     }
 
     /**

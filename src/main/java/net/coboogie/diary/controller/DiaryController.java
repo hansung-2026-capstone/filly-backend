@@ -10,6 +10,7 @@ import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiarySaveRequest;
+import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.service.DiaryService;
 import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.http.MediaType;
@@ -83,6 +84,61 @@ public class DiaryController {
     }
 
     /**
+     * 월별 일기 목록 조회 API.
+     * <p>
+     * year, month 쿼리 파라미터로 조회 월을 지정한다. 본인 일기만 반환된다.
+     *
+     * @param userId JWT에서 추출한 인증 사용자 ID
+     * @param year   조회 연도 (예: 2026)
+     * @param month  조회 월 (1~12)
+     * @return 해당 월의 일기 목록 (작성일 오름차순)
+     */
+    @GetMapping
+    @Operation(
+            summary = "월별 일기 목록 조회",
+            description = "year, month 파라미터로 해당 월의 일기 목록을 조회합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    public ResponseEntity<ApiResponse<List<DiaryResponse>>> getDiariesByMonth(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        List<DiaryResponse> responses = diaryService.getDiariesByMonth(userId, year, month);
+        return ResponseEntity.ok(ApiResponse.ok(responses));
+    }
+
+    /**
+     * 일기 단건 조회 API.
+     * <p>
+     * 본인 소유의 일기만 조회할 수 있다.
+     *
+     * @param userId JWT에서 추출한 인증 사용자 ID
+     * @param id     조회할 일기 ID
+     * @return 조회된 일기 정보
+     */
+    @GetMapping("/{id}")
+    @Operation(
+            summary = "일기 단건 조회",
+            description = "일기 ID로 단건 조회합니다. 본인 소유의 일기만 조회 가능합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+    })
+    public ResponseEntity<ApiResponse<DiaryResponse>> getDiary(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id
+    ) {
+        DiaryResponse response = diaryService.getDiary(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
      * 일기 저장 API.
      * <p>
      * JSON 바디로 일기 내용을 받아 DB에 저장한다.
@@ -115,5 +171,62 @@ public class DiaryController {
 
         DiaryResponse response = diaryService.saveDiary(command);
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * 일기 수정 API.
+     * <p>
+     * rawContent, emoji를 수정한다. null인 필드는 기존 값을 유지한다.
+     * 본인 소유의 일기만 수정 가능하다.
+     *
+     * @param userId  JWT에서 추출한 인증 사용자 ID
+     * @param id      수정할 일기 ID
+     * @param request 수정할 rawContent, emoji
+     * @return 수정된 일기 정보
+     */
+    @PutMapping("/{id}")
+    @Operation(
+            summary = "일기 수정",
+            description = "rawContent, emoji를 수정합니다. null인 필드는 기존 값을 유지합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+    })
+    public ResponseEntity<ApiResponse<DiaryResponse>> updateDiary(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id,
+            @RequestBody DiaryUpdateRequest request
+    ) {
+        DiaryResponse response = diaryService.updateDiary(id, userId, request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * 일기 삭제 API.
+     * <p>
+     * 본인 소유의 일기만 삭제 가능하다.
+     *
+     * @param userId JWT에서 추출한 인증 사용자 ID
+     * @param id     삭제할 일기 ID
+     * @return 데이터 없는 성공 응답
+     */
+    @DeleteMapping("/{id}")
+    @Operation(
+            summary = "일기 삭제",
+            description = "일기를 삭제합니다. 본인 소유의 일기만 삭제 가능합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+    })
+    public ResponseEntity<ApiResponse<Void>> deleteDiary(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id
+    ) {
+        diaryService.deleteDiary(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 }
