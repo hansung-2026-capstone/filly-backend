@@ -31,6 +31,7 @@ public class DiaryService {
 
     private final GcsStorageService gcsStorageService;
     private final AiDraftGeneratorService aiDraftGeneratorService;
+    private final SpeechToTextService speechToTextService;
     private final UserRepository userRepository;
     private final DiaryEntryRepository diaryEntryRepository;
 
@@ -78,9 +79,12 @@ public class DiaryService {
 
         List<String> mediaUrls = uploadImages(command.images());
 
+        String voiceTranscription = transcribeVoice(command.voice());
+
         AiDraftResult aiResult = aiDraftGeneratorService.generate(
                 command.textContent(),
                 Collections.emptyList(),
+                voiceTranscription,
                 command.writtenAt()
         );
 
@@ -107,6 +111,24 @@ public class DiaryService {
 
         if (!hasText && !hasImages && !hasVoice) {
             throw new IllegalArgumentException("텍스트, 이미지, 음성 중 하나 이상 입력해야 합니다.");
+        }
+    }
+
+    /**
+     * 음성 파일이 있으면 Chirp STT로 전사하고 텍스트를 반환한다.
+     * 음성이 없거나 전사 결과가 비어있으면 null을 반환한다.
+     *
+     * @throws UncheckedIOException STT 처리 실패 시
+     */
+    private String transcribeVoice(MultipartFile voice) {
+        if (voice == null || voice.isEmpty()) {
+            return null;
+        }
+        try {
+            String result = speechToTextService.transcribe(voice);
+            return result.isBlank() ? null : result;
+        } catch (IOException e) {
+            throw new UncheckedIOException("음성 파일 전사 실패", e);
         }
     }
 

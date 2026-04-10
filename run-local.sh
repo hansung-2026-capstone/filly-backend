@@ -27,3 +27,4 @@ export JWT_SECRET="localDevSecretKeyThatIsAtLeast32CharactersLong!!"
 
 echo "Starting Spring Boot (profile: local)..."
 ./gradlew bootRun
+read -p "Press enter to exit..."
