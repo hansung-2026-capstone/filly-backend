@@ -364,4 +364,46 @@ class DiaryServiceTest {
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining("일기를 찾을 수 없습니다");
     }
+
+    // ─────────────────────────────────────────────────────
+    // deleteDiary 테스트
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("본인 소유 일기 삭제 시 delete 호출")
+    void givenValidDiary_whenDeleteDiary_thenDeleteCalled() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 10L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(diaryId).user(mockUser).rawContent("내용")
+                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .createdAt(LocalDateTime.now()).build();
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+
+        // when
+        sut.deleteDiary(diaryId, userId);
+
+        // then
+        verify(diaryEntryRepository).delete(diary);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 일기 삭제 시 NoSuchElementException 발생")
+    void givenNonExistentDiary_whenDeleteDiary_thenThrowNoSuchElementException() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 999L;
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> sut.deleteDiary(diaryId, userId))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessageContaining("일기를 찾을 수 없습니다");
+
+        verify(diaryEntryRepository, never()).delete(any());
+    }
 }
