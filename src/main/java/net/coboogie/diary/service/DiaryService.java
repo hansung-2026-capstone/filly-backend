@@ -118,6 +118,7 @@ public class DiaryService {
      * @return 조회된 일기 응답 DTO
      * @throws NoSuchElementException 일기가 존재하지 않거나 본인 소유가 아닌 경우
      */
+    @Transactional(readOnly = true)
     public DiaryResponse getDiary(Long diaryId, Long userId) {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
@@ -134,6 +135,7 @@ public class DiaryService {
      * @param month  조회 월 (1~12)
      * @return 해당 월의 일기 목록 (작성일 오름차순)
      */
+    @Transactional(readOnly = true)
     public List<DiaryResponse> getDiariesByMonth(Long userId, int year, int month) {
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
