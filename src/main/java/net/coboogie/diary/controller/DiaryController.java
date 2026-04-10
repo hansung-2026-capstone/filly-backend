@@ -10,6 +10,7 @@ import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiarySaveRequest;
+import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.service.DiaryService;
 import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.http.MediaType;
@@ -169,6 +170,36 @@ public class DiaryController {
                 .build();
 
         DiaryResponse response = diaryService.saveDiary(command);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * 일기 수정 API.
+     * <p>
+     * rawContent, emoji를 수정한다. null인 필드는 기존 값을 유지한다.
+     * 본인 소유의 일기만 수정 가능하다.
+     *
+     * @param userId  JWT에서 추출한 인증 사용자 ID
+     * @param id      수정할 일기 ID
+     * @param request 수정할 rawContent, emoji
+     * @return 수정된 일기 정보
+     */
+    @PutMapping("/{id}")
+    @Operation(
+            summary = "일기 수정",
+            description = "rawContent, emoji를 수정합니다. null인 필드는 기존 값을 유지합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+    })
+    public ResponseEntity<ApiResponse<DiaryResponse>> updateDiary(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id,
+            @RequestBody DiaryUpdateRequest request
+    ) {
+        DiaryResponse response = diaryService.updateDiary(id, userId, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }
