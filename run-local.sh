@@ -10,7 +10,7 @@ fetch_secret() {
 export GCP_PROJECT_ID=$(fetch_secret "gcp-project-id")
 export GOOGLE_CLIENT_ID=$(fetch_secret "google-client-id")
 export GOOGLE_CLIENT_SECRET=$(fetch_secret "google-client-secret")
-export KAKAO_CLIENT_ID=$(fetch_secret "kakao-client-id")
+export KAKAO_CLIENT_ID=$(fetch_secret "kakao-rest-api-key")
 export KAKAO_CLIENT_SECRET=$(fetch_secret "kakao-client-secret")
 export NAVER_CLIENT_ID=$(fetch_secret "naver-client-id")
 export NAVER_CLIENT_SECRET=$(fetch_secret "naver-client-secret")
