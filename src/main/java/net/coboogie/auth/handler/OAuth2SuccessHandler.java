@@ -1,28 +1,38 @@
 package net.coboogie.auth.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import net.coboogie.auth.dto.CustomOAuth2User;
-import net.coboogie.auth.dto.TokenResponse;
 import net.coboogie.auth.util.JwtTokenProvider;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
+/**
+ * OAuth2 소셜 로그인 성공 핸들러.
+ * <p>
+ * 인증 성공 시 JWT를 생성하고 홈화면({@code /home.html})으로 리다이렉트한다.
+ * accessToken과 refreshToken을 쿼리 파라미터로 전달하면,
+ * 클라이언트(home.html)가 이를 localStorage에 저장하여 이후 API 호출에 사용한다.
+ */
 @Component
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
-    private final ObjectMapper objectMapper;
 
+    /**
+     * 로그인 성공 시 호출된다.
+     * JWT를 생성한 뒤 {@code /home.html?accessToken=...&refreshToken=...}으로 리다이렉트한다.
+     *
+     * @param request        HTTP 요청
+     * @param response       HTTP 응답
+     * @param authentication 인증 객체 (CustomOAuth2User 포함)
+     * @throws IOException 리다이렉트 실패 시
+     */
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
@@ -33,9 +43,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String accessToken = jwtTokenProvider.generateAccessToken(userId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
 
-        response.setStatus(HttpStatus.OK.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(), new TokenResponse(accessToken, refreshToken));
+        response.sendRedirect("/home.html?accessToken=" + accessToken + "&refreshToken=" + refreshToken);
     }
 }
