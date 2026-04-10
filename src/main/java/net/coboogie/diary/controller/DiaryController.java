@@ -9,7 +9,6 @@ import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
-import net.coboogie.diary.dto.DiarySaveRequest;
 import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.service.DiaryService;
 import net.coboogie.vo.DiaryEntryVO;
@@ -141,17 +140,25 @@ public class DiaryController {
     /**
      * 일기 저장 API.
      * <p>
-     * JSON 바디로 일기 내용을 받아 DB에 저장한다.
-     * DEFAULT 모드: 텍스트만 저장. IMAGE/IMAGE_TEXT 모드는 추후 미디어 업로드 흐름과 연동된다.
+     * Multipart 형식으로 일기 내용 및 이미지를 받아 DB에 저장한다.
+     * <ul>
+     *   <li>DEFAULT: rawContent(텍스트)만 저장</li>
+     *   <li>IMAGE: 이미지를 GCS에 업로드하고 diary_media에 저장</li>
+     *   <li>IMAGE_TEXT: 텍스트 + 이미지 모두 저장</li>
+     * </ul>
      *
-     * @param userId  JWT에서 추출한 인증 사용자 ID
-     * @param request 저장할 일기 내용 (rawContent, emoji, writtenAt, mode)
-     * @return 저장된 일기 정보
+     * @param userId     JWT에서 추출한 인증 사용자 ID
+     * @param rawContent 텍스트 본문 (DEFAULT/IMAGE_TEXT 모드, 선택)
+     * @param emoji      이모지 (선택)
+     * @param writtenAt  작성 날짜 (ISO 형식: yyyy-MM-dd)
+     * @param mode       일기 모드 (DEFAULT / IMAGE / IMAGE_TEXT / AI_IMAGE / AI)
+     * @param images     첨부 이미지 파일 목록 (IMAGE/IMAGE_TEXT 모드, 선택)
+     * @return 저장된 일기 정보 (mediaUrls 포함)
      */
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "일기 저장",
-            description = "일기를 DB에 저장합니다. DEFAULT 모드는 텍스트를 저장합니다."
+            description = "일기를 DB에 저장합니다. IMAGE/IMAGE_TEXT 모드는 이미지를 GCS에 업로드하고 diary_media에 저장합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "저장 성공"),
@@ -159,14 +166,19 @@ public class DiaryController {
     })
     public ResponseEntity<ApiResponse<DiaryResponse>> saveDiary(
             @AuthenticationPrincipal Long userId,
-            @RequestBody DiarySaveRequest request
+            @RequestPart(required = false) String rawContent,
+            @RequestPart(required = false) String emoji,
+            @RequestPart String writtenAt,
+            @RequestPart String mode,
+            @RequestPart(required = false) List<MultipartFile> images
     ) {
         DiarySaveCommand command = DiarySaveCommand.builder()
                 .userId(userId)
-                .rawContent(request.rawContent())
-                .emoji(request.emoji())
-                .writtenAt(request.writtenAt())
-                .mode(request.mode())
+                .rawContent(rawContent)
+                .emoji(emoji)
+                .writtenAt(LocalDate.parse(writtenAt))
+                .mode(DiaryEntryVO.Mode.valueOf(mode))
+                .images(images)
                 .build();
 
         DiaryResponse response = diaryService.saveDiary(command);
