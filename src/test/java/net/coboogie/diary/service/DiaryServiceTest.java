@@ -26,6 +26,7 @@ class DiaryServiceTest {
 
     @Mock private GcsStorageService gcsStorageService;
     @Mock private AiDraftGeneratorService aiDraftGeneratorService;
+    @Mock private SpeechToTextService speechToTextService;
 
     @InjectMocks
     private DiaryService sut;
@@ -48,7 +49,7 @@ class DiaryServiceTest {
                 "HAPPY", 0.85f, 8,
                 List.of("날씨", "햇살", "기분")
         );
-        given(aiDraftGeneratorService.generate(anyString(), anyList(), any())).willReturn(aiResult);
+        given(aiDraftGeneratorService.generate(anyString(), anyList(), any(), any())).willReturn(aiResult);
 
         // when
         DiaryDraftResponse response = sut.createDraft(command);
@@ -77,7 +78,7 @@ class DiaryServiceTest {
         AiDraftResult aiResult = new AiDraftResult("이미지 속 풍경이 아름다웠다.", "CALM", 0.7f, 6, List.of("풍경"));
 
         given(gcsStorageService.upload(mockImage, "diary/images")).willReturn(gcsUrl);
-        given(aiDraftGeneratorService.generate(any(), anyList(), any())).willReturn(aiResult);
+        given(aiDraftGeneratorService.generate(any(), anyList(), any(), any())).willReturn(aiResult);
 
         // when
         DiaryDraftResponse response = sut.createDraft(command);
