@@ -83,6 +83,33 @@ public class DiaryController {
     }
 
     /**
+     * 일기 단건 조회 API.
+     * <p>
+     * 본인 소유의 일기만 조회할 수 있다.
+     *
+     * @param userId JWT에서 추출한 인증 사용자 ID
+     * @param id     조회할 일기 ID
+     * @return 조회된 일기 정보
+     */
+    @GetMapping("/{id}")
+    @Operation(
+            summary = "일기 단건 조회",
+            description = "일기 ID로 단건 조회합니다. 본인 소유의 일기만 조회 가능합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+    })
+    public ResponseEntity<ApiResponse<DiaryResponse>> getDiary(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id
+    ) {
+        DiaryResponse response = diaryService.getDiary(id, userId);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
      * 일기 저장 API.
      * <p>
      * JSON 바디로 일기 내용을 받아 DB에 저장한다.
