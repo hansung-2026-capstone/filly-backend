@@ -21,7 +21,7 @@ export BFL_API_KEY=$(fetch_secret "bfl-api-key")
 export CLIP_SERVER_URL=$(fetch_secret "clip-server-url")
 
 # These are hardcoded in application-local.properties, but set here just in case
-export DB_URL="jdbc:mysql://localhost:3306/filly_db"
+export DB_URL="jdbc:mysql://localhost:3307/filly_db"
 export DB_PASSWORD="1234"
 export JWT_SECRET="localDevSecretKeyThatIsAtLeast32CharactersLong!!"
 

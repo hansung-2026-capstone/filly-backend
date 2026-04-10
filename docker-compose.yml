@@ -11,6 +11,6 @@ services:
       MYSQL_PASSWORD: 1234  # 사용할 비밀번호 (임의 설정)
       MYSQL_ROOT_PASSWORD: 1234
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
