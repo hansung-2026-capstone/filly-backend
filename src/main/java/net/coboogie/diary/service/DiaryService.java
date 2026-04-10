@@ -28,7 +28,7 @@ import java.util.NoSuchElementException;
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
  * <p>
- * 구현 완료: AI 초안 생성, 일기 저장, 단건 조회, 월별 목록 조회, 수정
+ * 구현 완료: AI 초안 생성, 일기 저장, 단건 조회, 월별 목록 조회, 수정, 삭제
  * 예정 구현: 목록 조회, 단건 조회, 수정, 삭제
  */
 @Service
@@ -130,6 +130,22 @@ public class DiaryService {
         diary.setUpdatedAt(LocalDateTime.now());
 
         return DiaryResponse.from(diary);
+    }
+
+    /**
+     * 일기를 삭제한다.
+     * <p>
+     * 본인 소유의 일기만 삭제할 수 있다. 존재하지 않거나 다른 사용자 소유이면 예외가 발생한다.
+     *
+     * @param diaryId 삭제할 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @throws NoSuchElementException 일기가 존재하지 않거나 본인 소유가 아닌 경우
+     */
+    @Transactional
+    public void deleteDiary(Long diaryId, Long userId) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        diaryEntryRepository.delete(diary);
     }
 
     /**
