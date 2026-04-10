@@ -49,11 +49,20 @@
       border-radius: 8px;
       padding: 10px 14px;
       text-align: left;
-      margin-top: 24px;
+      margin-top: 16px;
       word-break: break-all;
     }
-    .token-box label { font-size: 0.75rem; color: #6c5ce7; font-weight: 700; }
+    .token-box label {
+      font-size: 0.75rem; color: #6c5ce7; font-weight: 700;
+      display: flex; justify-content: space-between; align-items: center;
+    }
     .token-box p { font-size: 0.72rem; color: #555; margin-top: 4px; line-height: 1.4; }
+    .copy-btn {
+      font-size: 0.7rem; padding: 2px 8px; border-radius: 4px;
+      border: 1px solid #6c5ce7; background: #fff; color: #6c5ce7;
+      cursor: pointer; font-weight: 600;
+    }
+    .copy-btn:hover { background: #6c5ce7; color: #fff; }
     .divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
     #status { font-size: 0.88rem; color: #2d9b6f; margin-bottom: 16px; min-height: 20px; }
   </style>
@@ -71,8 +80,16 @@
     <a class="btn btn-primary" href="/diary-write.html">✏️ 일기 작성하기</a>
     <button class="btn" style="background:#f5f0eb;color:#555" onclick="logout()">로그아웃</button>
     <div class="token-box">
-      <label>ACCESS TOKEN (localStorage)</label>
-      <p id="token-preview">—</p>
+      <label>ACCESS TOKEN
+        <button class="copy-btn" onclick="copyToken('accessToken')">복사</button>
+      </label>
+      <p id="access-token-preview">—</p>
+    </div>
+    <div class="token-box">
+      <label>REFRESH TOKEN
+        <button class="copy-btn" onclick="copyToken('refreshToken')">복사</button>
+      </label>
+      <p id="refresh-token-preview">—</p>
     </div>
   </div>
 
@@ -109,8 +126,18 @@
     document.getElementById('status').textContent = '✅ 로그인되었습니다';
     document.getElementById('logged-in').style.display  = 'block';
     document.getElementById('logged-out').style.display = 'none';
-    // 토큰 앞 40자만 표시
-    document.getElementById('token-preview').textContent = token.slice(0, 40) + '…';
+    document.getElementById('access-token-preview').textContent =
+        localStorage.getItem('accessToken') || '—';
+    document.getElementById('refresh-token-preview').textContent =
+        localStorage.getItem('refreshToken') || '—';
+  }
+
+  function copyToken(key) {
+    const val = localStorage.getItem(key);
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      alert(key + ' 복사 완료!');
+    });
   }
 
   function logout() {
