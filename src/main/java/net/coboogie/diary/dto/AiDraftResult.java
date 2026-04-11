@@ -3,7 +3,7 @@ package net.coboogie.diary.dto;
 import java.util.List;
 
 /**
- * OpenAI로부터 구조화된 JSON 응답을 역직렬화하기 위한 내부 DTO.
+ * Gemini로부터 구조화된 JSON 응답을 역직렬화하기 위한 내부 DTO.
  * <p>
  * Spring AI의 {@code ChatClient.call().entity(AiDraftResult.class)}가
  * AI 응답을 이 레코드로 자동 파싱한다.
