@@ -40,6 +40,13 @@ src/main/resources/*.properties
 ### Local env ###
 .env.local
 
+### Test media files ###
+**/*.m4a
+**/*.mp3
+**/*.wav
+**/*.flac
+**/*.ogg
+
 ##MYSQL
 mysql_data/
 src/mysql_data/

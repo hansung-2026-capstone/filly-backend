@@ -26,5 +26,5 @@ export DB_PASSWORD="1234"
 export JWT_SECRET="localDevSecretKeyThatIsAtLeast32CharactersLong!!"
 
 echo "Starting Spring Boot (profile: local)..."
-./gradlew bootRun
+./gradlew bootRun --args='--spring.profiles.active=local'
 read -p "Press enter to exit..."
