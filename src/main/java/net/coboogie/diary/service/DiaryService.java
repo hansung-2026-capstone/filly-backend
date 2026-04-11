@@ -154,7 +154,7 @@ public class DiaryService {
      * 처리 순서:
      * 1. 입력값 유효성 검사 (하나 이상 필수)
      * 2. 이미지가 있으면 GCS에 업로드하여 URL 목록 확보
-     * 3. OpenAI로 일기 초안 및 감정 분석 생성
+     * 3. Gemini로 일기 초안 및 감정 분석 생성
      * 4. 결과 반환 (DB 저장 없음 — 사용자 확인 후 {@code POST /diaries}로 최종 저장)
      *
      * @param command 사용자 ID, 텍스트/이미지/음성, 날짜, 모드를 담은 커맨드 객체

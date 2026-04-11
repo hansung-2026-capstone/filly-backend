@@ -9,10 +9,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * OpenAI GPT를 사용하여 일기 초안을 생성하는 서비스.
+ * Gemini를 사용하여 일기 초안을 생성하는 서비스.
  * <p>
  * 사용자 입력(텍스트, 이미지 캡션)을 바탕으로 프롬프트를 구성하고,
- * Spring AI의 {@code ChatClient}를 통해 GPT 모델을 호출한다.
+ * Spring AI의 {@code ChatClient}를 통해 Gemini 모델을 호출한다.
  * AI 응답은 {@link AiDraftResult}로 구조화되어 반환된다.
  */
 @Service
@@ -41,7 +41,7 @@ public class AiDraftGeneratorService {
     }
 
     /**
-     * 입력 데이터를 조합하여 GPT에 전달할 프롬프트를 구성한다.
+     * 입력 데이터를 조합하여 Gemini에 전달할 프롬프트를 구성한다.
      * JSON 형식으로 응답하도록 명시하여 {@link AiDraftResult} 파싱 신뢰도를 높인다.
      */
     private String buildPrompt(String textContent, List<String> imageCaptions, String voiceTranscription, LocalDate writtenAt) {
