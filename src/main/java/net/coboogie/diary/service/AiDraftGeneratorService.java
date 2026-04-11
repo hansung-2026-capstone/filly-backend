@@ -1,76 +1,112 @@
 package net.coboogie.diary.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.coboogie.diary.dto.AiDraftResult;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Gemini를 사용하여 일기 초안을 생성하는 서비스.
  * <p>
- * 사용자 입력(텍스트, 이미지 캡션)을 바탕으로 프롬프트를 구성하고,
- * Spring AI의 {@code ChatClient}를 통해 Gemini 모델을 호출한다.
- * AI 응답은 {@link AiDraftResult}로 구조화되어 반환된다.
+ * 시스템 프롬프트(페르소나/출력 형식)는 AiConfig의 defaultSystem으로 등록되며,
+ * 이 서비스는 요청별 사용자 데이터만 담은 user 메시지를 구성하여 호출한다.
+ * Gemini 응답은 content()로 수령 후 방어 파싱하여 {@link AiDraftResult}로 변환한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiDraftGeneratorService {
 
     private final ChatClient chatClient;
+    private final ObjectMapper objectMapper;
+
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy년 M월 d일 EEEE", Locale.KOREAN);
 
     /**
      * 사용자 입력을 기반으로 AI 일기 초안을 생성한다.
      *
      * @param textContent        사용자가 직접 입력한 텍스트 메모 (null 허용)
-     * @param imageCaptions      이미지 분석으로 추출된 설명 목록
+     * @param imageCaptions      BLIP 모델로 추출된 이미지 장면 설명 목록
      * @param voiceTranscription Chirp STT로 전사된 음성 메모 (null 허용)
      * @param writtenAt          일기 작성 날짜
      * @return AI가 생성한 일기 텍스트 및 감정 분석 결과
      */
-    public AiDraftResult generate(String textContent, List<String> imageCaptions, String voiceTranscription, LocalDate writtenAt) {
-        String prompt = buildPrompt(textContent, imageCaptions, voiceTranscription, writtenAt);
+    public AiDraftResult generate(String textContent, List<String> imageCaptions,
+                                  String voiceTranscription, LocalDate writtenAt) {
+        String userMessage = buildUserMessage(textContent, imageCaptions, voiceTranscription, writtenAt);
 
-        // Spring AI structured output: AI 응답을 AiDraftResult 레코드로 자동 역직렬화
-        return chatClient.prompt()
-                .user(prompt)
+        String raw = chatClient.prompt()
+                .user(userMessage)
                 .call()
-                .entity(AiDraftResult.class);
+                .content();
+
+        return parseWithFallback(raw);
     }
 
     /**
-     * 입력 데이터를 조합하여 Gemini에 전달할 프롬프트를 구성한다.
-     * JSON 형식으로 응답하도록 명시하여 {@link AiDraftResult} 파싱 신뢰도를 높인다.
+     * 요청별 데이터를 조합하여 user 메시지를 구성한다.
+     * 시스템 역할 정의는 AiConfig의 defaultSystem에서 처리하므로 여기서는 데이터만 담는다.
      */
-    private String buildPrompt(String textContent, List<String> imageCaptions, String voiceTranscription, LocalDate writtenAt) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("당신은 일기를 대신 써주는 AI입니다.\n");
-        sb.append("아래 정보를 바탕으로 따뜻하고 감성적인 한국어 일기를 2~3 문단으로 작성해주세요.\n\n");
+    private String buildUserMessage(String textContent, List<String> imageCaptions,
+                                    String voiceTranscription, LocalDate writtenAt) {
+        return """
+                [작성 날짜]
+                %s
 
-        if (textContent != null && !textContent.isBlank()) {
-            sb.append("사용자 메모: ").append(textContent).append("\n");
-        }
-        if (voiceTranscription != null && !voiceTranscription.isBlank()) {
-            sb.append("음성 메모: ").append(voiceTranscription).append("\n");
-        }
-        if (!imageCaptions.isEmpty()) {
-            sb.append("이미지 설명: ").append(String.join(", ", imageCaptions)).append("\n");
-        }
-        sb.append("날짜: ").append(writtenAt).append("\n\n");
+                [텍스트 메모]
+                %s
 
-        sb.append("다음 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요:\n");
-        sb.append("{\n");
-        sb.append("  \"generatedText\": \"작성된 일기 텍스트\",\n");
-        sb.append("  \"emotionType\": \"HAPPY\",\n");
-        sb.append("  \"emotionScore\": 0.85,\n");
-        sb.append("  \"moodIndex\": 8,\n");
-        sb.append("  \"detectedKeywords\": [\"키워드1\", \"키워드2\", \"키워드3\"]\n");
-        sb.append("}\n");
-        sb.append("emotionType은 CALM, HAPPY, ANXIOUS, SAD, ANGRY 중 하나.\n");
-        sb.append("emotionScore는 0.0~1.0, moodIndex는 1~10 정수.");
+                [음성 메모]
+                %s
 
-        return sb.toString();
+                [사진 속 장면]
+                %s
+                """.formatted(
+                writtenAt.format(DATE_FORMATTER),
+                orNone(textContent),
+                orNone(voiceTranscription),
+                imageCaptions.isEmpty() ? "(없음)" : String.join("\n", imageCaptions)
+        );
+    }
+
+    /**
+     * Gemini 응답에서 JSON을 추출하고 AiDraftResult로 파싱한다.
+     * 응답에 코드블록이나 설명 문구가 섞여 있어도 JSON 부분만 파싱한다.
+     */
+    private AiDraftResult parseWithFallback(String raw) {
+        String json = extractJson(raw);
+        try {
+            return objectMapper.readValue(json, AiDraftResult.class);
+        } catch (JsonProcessingException e) {
+            log.warn("Gemini 응답 JSON 파싱 실패. raw={}", raw, e);
+            throw new IllegalStateException("AI 응답을 파싱할 수 없습니다.", e);
+        }
+    }
+
+    /**
+     * 응답 문자열에서 JSON 객체 부분만 추출한다.
+     * ```json ... ``` 마크다운 코드블록을 제거하고 첫 { 부터 마지막 } 까지 반환한다.
+     */
+    private String extractJson(String raw) {
+        raw = raw.replaceAll("(?s)```json\\s*", "").replaceAll("```", "").strip();
+        int start = raw.indexOf('{');
+        int end = raw.lastIndexOf('}');
+        if (start != -1 && end != -1 && end > start) {
+            return raw.substring(start, end + 1);
+        }
+        return raw;
+    }
+
+    private String orNone(String value) {
+        return (value == null || value.isBlank()) ? "(없음)" : value;
     }
 }
