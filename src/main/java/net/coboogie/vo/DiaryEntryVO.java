@@ -44,7 +44,7 @@ public class DiaryEntryVO {
     @Column(name = "written_at", nullable = false)
     private LocalDate writtenAt;
 
-    @OneToMany(mappedBy = "diary", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "diary", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DiaryMediaVO> media;
 
     @CreationTimestamp

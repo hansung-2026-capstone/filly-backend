@@ -2,6 +2,7 @@ package net.coboogie.diary.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import net.coboogie.common.response.ApiResponse;
@@ -33,6 +34,7 @@ import java.util.List;
 @RequestMapping("/api/v1/diaries")
 @RequiredArgsConstructor
 @Tag(name = "Diary", description = "일기 관련 API")
+@SecurityRequirement(name = "bearerAuth")
 public class DiaryController {
 
     private final DiaryService diaryService;

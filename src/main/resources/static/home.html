@@ -1,150 +1,402 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Filly - 홈</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f5f0eb;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 40px 32px;
-      width: 360px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      text-align: center;
-    }
-    .logo { font-size: 2.5rem; margin-bottom: 8px; }
-    h1 { font-size: 1.5rem; color: #2d2d2d; margin-bottom: 4px; }
-    .sub { color: #888; font-size: 0.9rem; margin-bottom: 32px; }
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 14px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 600;
-      text-decoration: none;
-      margin-bottom: 12px;
-      transition: opacity .15s;
-    }
-    .btn:hover { opacity: 0.85; }
-    .btn-primary { background: #6c5ce7; color: #fff; }
-    .btn-google  { background: #fff; color: #444; border: 1.5px solid #ddd; }
-    .btn-kakao   { background: #fee500; color: #3d1f1f; }
-    .btn-naver   { background: #03c75a; color: #fff; }
-    .token-box {
-      background: #f8f7ff;
-      border: 1px solid #e0ddf8;
-      border-radius: 8px;
-      padding: 10px 14px;
-      text-align: left;
-      margin-top: 16px;
-      word-break: break-all;
-    }
-    .token-box label {
-      font-size: 0.75rem; color: #6c5ce7; font-weight: 700;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .token-box p { font-size: 0.72rem; color: #555; margin-top: 4px; line-height: 1.4; }
-    .copy-btn {
-      font-size: 0.7rem; padding: 2px 8px; border-radius: 4px;
-      border: 1px solid #6c5ce7; background: #fff; color: #6c5ce7;
-      cursor: pointer; font-weight: 600;
-    }
-    .copy-btn:hover { background: #6c5ce7; color: #fff; }
-    .divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
-    #status { font-size: 0.88rem; color: #2d9b6f; margin-bottom: 16px; min-height: 20px; }
-  </style>
+<meta charset="UTF-8">
+<title>Filly API 테스트</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: sans-serif; background: #f5f5f5; color: #333; }
+  .header { background: #4f46e5; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 18px; }
+  .container { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+
+  #login-section { text-align: center; padding: 80px 0; }
+  #login-section h2 { font-size: 24px; margin-bottom: 8px; }
+  #login-section p { color: #666; margin-bottom: 32px; }
+  .login-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .login-btn { padding: 12px 32px; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: 600; }
+  .btn-google { background: #fff; border: 1px solid #ddd; color: #333; }
+  .btn-kakao  { background: #FEE500; color: #000; }
+  .btn-naver  { background: #03C75A; color: #fff; }
+
+  .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .card h3 { font-size: 14px; font-weight: 700; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #eee; color: #4f46e5; }
+
+  .form-row { margin-bottom: 10px; }
+  label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; outline: none;
+  }
+  input[type=text]:focus, textarea:focus { border-color: #4f46e5; }
+  textarea { resize: vertical; min-height: 70px; }
+  input[type=file] { font-size: 13px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  .btn { padding: 9px 18px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
+  .btn-primary   { background: #4f46e5; color: white; }
+  .btn-danger    { background: #ef4444; color: white; }
+  .btn:hover     { opacity: 0.85; }
+  .btn:disabled  { opacity: 0.5; cursor: not-allowed; }
+
+  .result { margin-top: 12px; padding: 10px 12px; background: #f8f9fa; border-radius: 6px; font-size: 12px; border-left: 3px solid #4f46e5; }
+  .result.error   { border-left-color: #ef4444; background: #fff5f5; }
+  .result.success { border-left-color: #10b981; }
+  pre { white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+
+  .diary-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .diary-item { padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: background 0.1s; }
+  .diary-item:hover { background: #f0f0ff; }
+  .diary-item .di-date { font-size: 11px; color: #888; }
+  .diary-item .di-content { font-size: 13px; margin-top: 2px; }
+
+  #app { display: none; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { padding: 8px 16px; border-radius: 20px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 13px; }
+  .tab.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .draft-box { padding: 14px; background: #f0f0ff; border-radius: 8px; font-size: 13px; line-height: 1.6; margin-bottom: 10px; }
+  .logout-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
-<div class="card">
-  <div class="logo">📔</div>
-  <h1>Filly</h1>
-  <p class="sub">나만의 AI 감성 일기</p>
 
-  <p id="status"></p>
-
-  <!-- 로그인 상태에 따라 동적으로 교체 -->
-  <div id="logged-in" style="display:none">
-    <a class="btn btn-primary" href="/diary-write.html">✏️ 일기 작성하기</a>
-    <button class="btn" style="background:#f5f0eb;color:#555" onclick="logout()">로그아웃</button>
-    <div class="token-box">
-      <label>ACCESS TOKEN
-        <button class="copy-btn" onclick="copyToken('accessToken')">복사</button>
-      </label>
-      <p id="access-token-preview">—</p>
-    </div>
-    <div class="token-box">
-      <label>REFRESH TOKEN
-        <button class="copy-btn" onclick="copyToken('refreshToken')">복사</button>
-      </label>
-      <p id="refresh-token-preview">—</p>
-    </div>
-  </div>
-
-  <div id="logged-out">
-    <a class="btn btn-google" href="/oauth2/authorization/google">🔵 Google로 로그인</a>
-    <a class="btn btn-kakao"  href="/oauth2/authorization/kakao">💛 카카오로 로그인</a>
-    <a class="btn btn-naver"  href="/oauth2/authorization/naver">🟢 네이버로 로그인</a>
+<!-- 로그인 화면 -->
+<div id="login-section">
+  <h2>🌸 Filly API 테스트</h2>
+  <p>소셜 로그인 후 기능을 테스트할 수 있습니다.</p>
+  <div class="login-btns">
+    <button class="login-btn btn-google" onclick="location.href='/oauth2/authorization/google'">🔵 Google로 로그인</button>
+    <button class="login-btn btn-kakao"  onclick="location.href='/oauth2/authorization/kakao'">💛 Kakao로 로그인</button>
+    <button class="login-btn btn-naver"  onclick="location.href='/oauth2/authorization/naver'">🟢 Naver로 로그인</button>
   </div>
 </div>
 
+<!-- 메인 앱 -->
+<div id="app">
+  <div class="header">
+    <h1>🌸 Filly API 테스트</h1>
+    <button class="logout-btn" onclick="logout()">로그아웃</button>
+  </div>
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" data-tab="draft"  onclick="switchTab(this)">✨ AI 초안 생성</button>
+      <button class="tab"        data-tab="list"   onclick="switchTab(this)">📋 일기 목록</button>
+      <button class="tab"        data-tab="save"   onclick="switchTab(this)">💾 일기 저장</button>
+      <button class="tab"        data-tab="crud"   onclick="switchTab(this)">✏️ 수정 / 삭제</button>
+    </div>
+
+    <!-- ① AI 초안 생성 -->
+    <div id="tab-draft" class="tab-content active">
+      <div class="card">
+        <h3>✨ AI 일기 초안 생성 — POST /api/v1/diaries/draft</h3>
+        <div class="form-row">
+          <label>텍스트 메모 (선택)</label>
+          <textarea id="d-text" placeholder="오늘 있었던 일을 적어주세요..."></textarea>
+        </div>
+        <div class="row2">
+          <div class="form-row">
+            <label>이미지 (선택, 복수 가능)</label>
+            <input type="file" id="d-images" accept="image/*" multiple>
+          </div>
+          <div class="form-row">
+            <label>음성 파일 (선택)</label>
+            <input type="file" id="d-voice" accept="audio/*">
+          </div>
+        </div>
+        <div class="row2">
+          <div class="form-row">
+            <label>작성 날짜</label>
+            <input type="text" id="d-date">
+          </div>
+          <div class="form-row">
+            <label>모드</label>
+            <select id="d-mode">
+              <option value="AI">AI</option>
+              <option value="DEFAULT">DEFAULT</option>
+              <option value="IMAGE">IMAGE</option>
+              <option value="VOICE">VOICE</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-draft" onclick="createDraft()">AI 초안 생성</button>
+        <div id="result-draft"></div>
+
+        <div id="draft-save-box" style="display:none; margin-top:14px;">
+          <div class="draft-box" id="draft-preview"></div>
+          <button class="btn btn-primary" onclick="saveDraftDirectly()">이 초안으로 바로 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 일기 목록 -->
+    <div id="tab-list" class="tab-content">
+      <div class="card">
+        <h3>📋 월별 일기 목록 — GET /api/v1/diaries?year=&month=</h3>
+        <div class="row2">
+          <div class="form-row"><label>연도</label><input type="number" id="l-year"></div>
+          <div class="form-row"><label>월</label><input type="number" id="l-month" min="1" max="12"></div>
+        </div>
+        <button class="btn btn-primary" onclick="loadDiaries()">조회</button>
+        <div id="result-list"></div>
+      </div>
+    </div>
+
+    <!-- ③ 일기 저장 -->
+    <div id="tab-save" class="tab-content">
+      <div class="card">
+        <h3>💾 일기 저장 — POST /api/v1/diaries</h3>
+        <div class="form-row">
+          <label>일기 내용</label>
+          <textarea id="s-content" placeholder="저장할 일기 내용..."></textarea>
+        </div>
+        <div class="row3">
+          <div class="form-row"><label>이모지</label><input type="text" id="s-emoji" placeholder="😊"></div>
+          <div class="form-row"><label>작성 날짜</label><input type="text" id="s-date"></div>
+          <div class="form-row">
+            <label>모드</label>
+            <select id="s-mode">
+              <option value="DEFAULT">DEFAULT</option>
+              <option value="AI">AI</option>
+              <option value="IMAGE">IMAGE</option>
+              <option value="VOICE">VOICE</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveDiary()">저장</button>
+        <div id="result-save"></div>
+      </div>
+    </div>
+
+    <!-- ④ 수정 / 삭제 -->
+    <div id="tab-crud" class="tab-content">
+      <div class="card">
+        <h3>🔍 단건 조회 — GET /api/v1/diaries/{id}</h3>
+        <div class="row2">
+          <div class="form-row"><label>일기 ID</label><input type="number" id="g-id" placeholder="1"></div>
+        </div>
+        <button class="btn btn-primary" onclick="getDiary()">조회</button>
+        <div id="result-get"></div>
+      </div>
+
+      <div class="card">
+        <h3>✏️ 일기 수정 — PUT /api/v1/diaries/{id}</h3>
+        <div class="row2">
+          <div class="form-row"><label>일기 ID</label><input type="number" id="u-id" placeholder="1"></div>
+          <div class="form-row"><label>새 이모지 (선택)</label><input type="text" id="u-emoji" placeholder="😄"></div>
+        </div>
+        <div class="form-row">
+          <label>새 내용 (선택)</label>
+          <textarea id="u-content" placeholder="수정할 내용..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="updateDiary()">수정</button>
+        <div id="result-update"></div>
+      </div>
+
+      <div class="card">
+        <h3>🗑️ 일기 삭제 — DELETE /api/v1/diaries/{id}</h3>
+        <div class="row2">
+          <div class="form-row"><label>일기 ID</label><input type="number" id="del-id" placeholder="1"></div>
+        </div>
+        <button class="btn btn-danger" onclick="deleteDiary()">삭제</button>
+        <div id="result-delete"></div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /app -->
+
 <script>
-  (function init() {
-    // URL 파라미터에서 토큰 추출 (OAuth2 리다이렉트 직후)
-    const params = new URLSearchParams(window.location.search);
-    const accessToken  = params.get('accessToken');
-    const refreshToken = params.get('refreshToken');
+let lastDraft = null;
 
-    if (accessToken) {
-      localStorage.setItem('accessToken', accessToken);
-      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-      // URL에서 토큰 파라미터 제거 (보안)
-      history.replaceState({}, '', '/home.html');
+function getToken() { return localStorage.getItem('accessToken'); }
+function authHeader() { return { 'Authorization': 'Bearer ' + getToken() }; }
+function logout() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-section').style.display = 'block';
+}
+
+window.onload = function () {
+  const params = new URLSearchParams(window.location.search);
+  const at = params.get('accessToken');
+  const rt = params.get('refreshToken');
+  if (at) {
+    localStorage.setItem('accessToken', at);
+    if (rt) localStorage.setItem('refreshToken', rt);
+    history.replaceState({}, '', '/home.html');
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('d-date').value = today;
+  document.getElementById('s-date').value = today;
+  document.getElementById('l-year').value  = new Date().getFullYear();
+  document.getElementById('l-month').value = new Date().getMonth() + 1;
+
+  if (getToken()) {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+  }
+};
+
+function switchTab(btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+function showResult(id, data, isError) {
+  const el = document.getElementById(id);
+  el.className = 'result ' + (isError ? 'error' : 'success');
+  el.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+}
+
+// ① AI 초안 생성
+async function createDraft() {
+  const btn = document.getElementById('btn-draft');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>AI 생성 중...';
+
+  const form = new FormData();
+  const text  = document.getElementById('d-text').value.trim();
+  const date  = document.getElementById('d-date').value;
+  const mode  = document.getElementById('d-mode').value;
+  const imgs  = document.getElementById('d-images').files;
+  const voice = document.getElementById('d-voice').files[0];
+
+  if (text)  form.append('content', text);
+  if (date)  form.append('writtenAt', date);
+  if (mode)  form.append('mode', mode);
+  for (let f of imgs) form.append('images', f);
+  if (voice) form.append('voice', voice);
+
+  try {
+    const res  = await fetch('/api/v1/diaries/draft', { method: 'POST', headers: authHeader(), body: form });
+    const json = await res.json();
+    showResult('result-draft', json, !res.ok);
+
+    if (res.ok && json.data) {
+      lastDraft = { data: json.data, date, mode };
+      const d = json.data;
+      document.getElementById('draft-preview').innerHTML =
+        `<strong>${d.aiAnalysis?.emotionType || ''}</strong> 기분 ${d.aiAnalysis?.moodIndex || '-'}/10<br><br>${d.generatedText || ''}`;
+      document.getElementById('draft-save-box').style.display = 'block';
     }
+  } catch(e) {
+    showResult('result-draft', { error: e.message }, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
 
-    const stored = localStorage.getItem('accessToken');
-    if (stored) {
-      showLoggedIn(stored);
-    } else {
-      document.getElementById('logged-out').style.display = 'block';
+async function saveDraftDirectly() {
+  if (!lastDraft) return;
+  const d = lastDraft.data;
+  const emojiMap = { HAPPY:'😊', CALM:'😌', ANXIOUS:'😰', SAD:'😢', ANGRY:'😡' };
+  const body = {
+    rawContent: d.generatedText,
+    emoji:      emojiMap[d.aiAnalysis?.emotionType] || '📝',
+    writtenAt:  lastDraft.date,
+    mode:       lastDraft.mode || 'AI'
+  };
+  const res  = await fetch('/api/v1/diaries', { method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const json = await res.json();
+  showResult('result-draft', json, !res.ok);
+  if (res.ok) {
+    document.getElementById('draft-save-box').style.display = 'none';
+    alert('저장 완료! 일기 ID: ' + json.data?.id);
+  }
+}
+
+// ② 일기 목록
+async function loadDiaries() {
+  const year = document.getElementById('l-year').value;
+  const month = document.getElementById('l-month').value;
+  try {
+    const res  = await fetch(`/api/v1/diaries?year=${year}&month=${month}`, { headers: authHeader() });
+    const json = await res.json();
+    showResult('result-list', json, !res.ok);
+    if (res.ok && Array.isArray(json.data) && json.data.length) {
+      const listEl = document.createElement('div');
+      listEl.className = 'diary-list';
+      json.data.forEach(d => {
+        const item = document.createElement('div');
+        item.className = 'diary-item';
+        item.innerHTML = `<div class="di-date">${d.writtenAt} · ID: ${d.id} · ${d.mode}</div>
+          <div class="di-content">${d.emoji || ''} ${(d.rawContent || '').slice(0, 80)}${(d.rawContent||'').length > 80 ? '…' : ''}</div>`;
+        item.onclick = () => {
+          ['g-id','u-id','del-id'].forEach(id => document.getElementById(id).value = d.id);
+          document.querySelector('[data-tab=crud]').click();
+          getDiary();
+        };
+        listEl.appendChild(item);
+      });
+      document.getElementById('result-list').appendChild(listEl);
     }
-  })();
+  } catch(e) { showResult('result-list', { error: e.message }, true); }
+}
 
-  function showLoggedIn(token) {
-    document.getElementById('status').textContent = '✅ 로그인되었습니다';
-    document.getElementById('logged-in').style.display  = 'block';
-    document.getElementById('logged-out').style.display = 'none';
-    document.getElementById('access-token-preview').textContent =
-        localStorage.getItem('accessToken') || '—';
-    document.getElementById('refresh-token-preview').textContent =
-        localStorage.getItem('refreshToken') || '—';
-  }
+// ③ 저장
+async function saveDiary() {
+  const body = {
+    rawContent: document.getElementById('s-content').value,
+    emoji:      document.getElementById('s-emoji').value || null,
+    writtenAt:  document.getElementById('s-date').value,
+    mode:       document.getElementById('s-mode').value
+  };
+  try {
+    const res  = await fetch('/api/v1/diaries', { method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const json = await res.json();
+    showResult('result-save', json, !res.ok);
+  } catch(e) { showResult('result-save', { error: e.message }, true); }
+}
 
-  function copyToken(key) {
-    const val = localStorage.getItem(key);
-    if (!val) return;
-    navigator.clipboard.writeText(val).then(() => {
-      alert(key + ' 복사 완료!');
-    });
-  }
+// ④ 단건 조회
+async function getDiary() {
+  const id = document.getElementById('g-id').value;
+  if (!id) return alert('ID를 입력하세요');
+  try {
+    const res  = await fetch(`/api/v1/diaries/${id}`, { headers: authHeader() });
+    const json = await res.json();
+    showResult('result-get', json, !res.ok);
+  } catch(e) { showResult('result-get', { error: e.message }, true); }
+}
 
-  function logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    location.reload();
-  }
+// ⑤ 수정
+async function updateDiary() {
+  const id = document.getElementById('u-id').value;
+  if (!id) return alert('ID를 입력하세요');
+  const body = {};
+  const content = document.getElementById('u-content').value;
+  const emoji   = document.getElementById('u-emoji').value;
+  if (content) body.rawContent = content;
+  if (emoji)   body.emoji = emoji;
+  try {
+    const res  = await fetch(`/api/v1/diaries/${id}`, { method: 'PUT', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const json = await res.json();
+    showResult('result-update', json, !res.ok);
+  } catch(e) { showResult('result-update', { error: e.message }, true); }
+}
+
+// ⑥ 삭제
+async function deleteDiary() {
+  const id = document.getElementById('del-id').value;
+  if (!id) return alert('ID를 입력하세요');
+  if (!confirm(`ID ${id} 일기를 삭제할까요?`)) return;
+  try {
+    const res  = await fetch(`/api/v1/diaries/${id}`, { method: 'DELETE', headers: authHeader() });
+    const json = await res.json();
+    showResult('result-delete', json, !res.ok);
+  } catch(e) { showResult('result-delete', { error: e.message }, true); }
+}
 </script>
 </body>
 </html>
