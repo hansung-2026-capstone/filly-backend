@@ -1,6 +1,8 @@
 package net.coboogie.diary.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.coboogie.blip.services.ImageAnalysisService;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
@@ -31,6 +33,7 @@ import java.util.NoSuchElementException;
  * 구현 완료: AI 초안 생성, 일기 저장, 단건 조회, 월별 목록 조회, 수정, 삭제
  * 예정 구현: 목록 조회, 단건 조회, 수정, 삭제
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DiaryService {
@@ -38,6 +41,7 @@ public class DiaryService {
     private final GcsStorageService gcsStorageService;
     private final AiDraftGeneratorService aiDraftGeneratorService;
     private final SpeechToTextService speechToTextService;
+    private final ImageAnalysisService imageAnalysisService;
     private final UserRepository userRepository;
     private final DiaryEntryRepository diaryEntryRepository;
 
@@ -165,12 +169,13 @@ public class DiaryService {
         validateInput(command);
 
         List<String> mediaUrls = uploadImages(command.images());
+        List<String> imageCaptions = extractCaptions(command.images());
 
         String voiceTranscription = transcribeVoice(command.voice());
 
         AiDraftResult aiResult = aiDraftGeneratorService.generate(
                 command.textContent(),
-                Collections.emptyList(),
+                imageCaptions,
                 voiceTranscription,
                 command.writtenAt()
         );
@@ -213,10 +218,38 @@ public class DiaryService {
         }
         try {
             String result = speechToTextService.transcribe(voice);
-            return result.isBlank() ? null : result;
-        } catch (IOException e) {
-            throw new UncheckedIOException("음성 파일 전사 실패", e);
+            if (result.isBlank()) {
+                log.warn("STT 전사 결과가 비어있습니다. filename={}", voice.getOriginalFilename());
+                return null;
+            }
+            log.info("STT 전사 완료: {}", result);
+            return result;
+        } catch (Exception e) {
+            log.error("STT 전사 실패. filename={}", voice.getOriginalFilename(), e);
+            return null;
         }
+    }
+
+    /**
+     * 이미지 파일 목록을 BLIP으로 분석하여 캡션 목록을 반환한다.
+     * 이미지가 없으면 빈 리스트를 반환한다. 분석 실패한 이미지는 건너뛴다.
+     */
+    private List<String> extractCaptions(List<MultipartFile> images) {
+        if (images == null || images.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> captions = new ArrayList<>();
+        for (MultipartFile image : images) {
+            try {
+                String caption = imageAnalysisService.analyzeCaption(image).caption();
+                if (caption != null && !caption.isBlank()) {
+                    captions.add(caption);
+                }
+            } catch (Exception e) {
+                // BLIP 서버 미실행 등 분석 실패 시 해당 이미지 건너뜀
+            }
+        }
+        return captions;
     }
 
     /**
