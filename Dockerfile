@@ -1,14 +1,10 @@
-FROM eclipse-temurin:21-jdk-alpine AS build
-WORKDIR /app
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
-COPY src src
-RUN ./gradlew bootWar -x test --no-daemon
-
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/build/libs/*.war app.war
+
+# 로컬 build/libs 폴더의 jar 파일을 컨테이너로 복사
+COPY build/libs/*.jar app.jar
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.war"]
+
+# 실행 명령어
+ENTRYPOINT ["java", "-jar", "app.jar"]
