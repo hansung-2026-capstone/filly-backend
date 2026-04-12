@@ -70,12 +70,24 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             case "google" -> oAuth2User.getAttribute("name");
             case "kakao" -> {
                 Map<String, Object> kakaoAccount = oAuth2User.getAttribute("kakao_account");
+                if (kakaoAccount == null) {
+                    yield "User_" + (int)(Math.random() * 100000);
+                }
                 Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
+                if (profile == null || profile.get("nickname") == null) {
+                    yield "User_" + (int)(Math.random() * 100000);
+                }
                 yield (String) profile.get("nickname");
             }
             case "naver" -> {
                 Map<String, Object> response = oAuth2User.getAttribute("response");
-                yield (String) response.get("nickname");
+                if(response.get("nickname") != null) {
+                    yield (String) response.get("nickname");
+                } else if (response.get("name") != null) {
+                    yield (String) response.get("name");
+                } else {
+                    yield "User " + Integer.toString((int)( Math.random() * 100000));
+                }
             }
             default -> throw new OAuth2AuthenticationException("Unsupported provider: " + provider);
         };

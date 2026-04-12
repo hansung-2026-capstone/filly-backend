@@ -1,27 +1,12 @@
-.gcloudignore
+# .gcloudignore 파일 내용 수정
 .git
 .gitignore
-
-# Build artifacts
-build/
+node_modules/
 .gradle/
-out/
 
-# IDE files
-.idea/
-*.iws
-*.iml
-*.ipr
-.classpath
-.project
-.settings/
-.springBeans
-.sts4-cache/
-bin/
+# 이제 소스 코드는 보내지 않습니다 (로컬에서 빌드하니까요)
+src/
 
-# Local data
-mysql_data/
-**/*.sql
-
-# Local properties (프로덕션에서 불필요)
-src/main/resources/application-local.properties
+# 대신 빌드 결과물은 무시(ignore) 항목에서 빼야 합니다!
+# (만약 build/ 가 적혀있다면 앞에 #을 붙여 주석 처리하거나 지워주세요)
+# build/  <- 이 줄이 있다면 지우세요!

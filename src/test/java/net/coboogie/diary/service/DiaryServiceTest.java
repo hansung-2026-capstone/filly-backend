@@ -7,7 +7,9 @@ import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.repository.DiaryEntryRepository;
+import net.coboogie.diary.repository.DiaryMediaRepository;
 import net.coboogie.vo.DiaryEntryVO;
+import net.coboogie.vo.DiaryMediaVO;
 import net.coboogie.vo.UserVO;
 import net.coboogie.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +41,7 @@ class DiaryServiceTest {
     @Mock private SpeechToTextService speechToTextService;
     @Mock private UserRepository userRepository;
     @Mock private DiaryEntryRepository diaryEntryRepository;
+    @Mock private DiaryMediaRepository diaryMediaRepository;
 
     @InjectMocks
     private DiaryService sut;
@@ -89,7 +92,7 @@ class DiaryServiceTest {
         String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/diary/images/uuid_photo.jpg";
         AiDraftResult aiResult = new AiDraftResult("이미지 속 풍경이 아름다웠다.", "CALM", 0.7f, 6, List.of("풍경"));
 
-        given(gcsStorageService.upload(mockImage, "diary/images")).willReturn(gcsUrl);
+        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(gcsUrl);
         given(aiDraftGeneratorService.generate(any(), anyList(), any(), any())).willReturn(aiResult);
 
         // when
@@ -97,7 +100,7 @@ class DiaryServiceTest {
 
         // then
         assertThat(response.mediaUrls()).containsExactly(gcsUrl);
-        verify(gcsStorageService).upload(mockImage, "diary/images");
+        verify(gcsStorageService).upload(mockImage, "uploads/images");
     }
 
     @Test
@@ -176,6 +179,45 @@ class DiaryServiceTest {
         assertThat(response.writtenAt()).isEqualTo(WRITTEN_AT);
         assertThat(response.mode()).isEqualTo(DiaryEntryVO.Mode.DEFAULT);
         verify(diaryEntryRepository).save(any(DiaryEntryVO.class));
+    }
+
+    @Test
+    @DisplayName("IMAGE 모드 저장 시 GCS 업로드 후 mediaUrls 포함하여 DiaryResponse 반환")
+    void givenImageModeCommand_whenSaveDiary_thenUploadToGcsAndReturnResponseWithMediaUrls() throws IOException {
+        // given
+        Long userId = 1L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        MultipartFile mockImage = mock(MultipartFile.class);
+        given(mockImage.getSize()).willReturn(1024L);
+
+        DiarySaveCommand command = DiarySaveCommand.builder()
+                .userId(userId)
+                .writtenAt(WRITTEN_AT)
+                .mode(DiaryEntryVO.Mode.IMAGE)
+                .images(List.of(mockImage))
+                .build();
+
+        String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/diary/images/photo.jpg";
+        DiaryEntryVO savedDiary = DiaryEntryVO.builder()
+                .id(10L).user(mockUser).writtenAt(WRITTEN_AT)
+                .mode(DiaryEntryVO.Mode.IMAGE).createdAt(LocalDateTime.now()).build();
+        DiaryMediaVO savedMedia = DiaryMediaVO.builder()
+                .id(1L).diary(savedDiary).type(DiaryMediaVO.Type.IMAGE)
+                .gcsUrl(gcsUrl).fileSize(1024).build();
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
+        given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
+        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(gcsUrl);
+        given(diaryMediaRepository.save(any(DiaryMediaVO.class))).willReturn(savedMedia);
+
+        // when
+        DiaryResponse response = sut.saveDiary(command);
+
+        // then
+        assertThat(response.id()).isEqualTo(10L);
+        assertThat(response.mediaUrls()).containsExactly(gcsUrl);
+        verify(gcsStorageService).upload(mockImage, "uploads/images");
+        verify(diaryMediaRepository).save(any(DiaryMediaVO.class));
     }
 
     @Test

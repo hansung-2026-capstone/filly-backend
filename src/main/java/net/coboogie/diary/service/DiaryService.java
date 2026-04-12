@@ -10,7 +10,9 @@ import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.repository.DiaryEntryRepository;
+import net.coboogie.diary.repository.DiaryMediaRepository;
 import net.coboogie.vo.DiaryEntryVO;
+import net.coboogie.vo.DiaryMediaVO;
 import net.coboogie.vo.UserVO;
 import net.coboogie.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -44,17 +46,21 @@ public class DiaryService {
     private final ImageAnalysisService imageAnalysisService;
     private final UserRepository userRepository;
     private final DiaryEntryRepository diaryEntryRepository;
+    private final DiaryMediaRepository diaryMediaRepository;
 
     /**
      * 일기를 DB에 저장하고 저장된 결과를 반환한다.
      * <p>
-     * DEFAULT 모드: rawContent(텍스트)를 diary_entries에 저장한다.
+     * DEFAULT 모드: rawContent(텍스트)를 diary_entries에 저장한다.<br>
+     * IMAGE/IMAGE_TEXT 모드: 이미지를 GCS에 업로드하고 diary_media에 저장한다.
      * 작성 날짜, 이모지, 모드를 함께 저장하며, 별점은 초기에 설정되지 않는다.
      *
-     * @param command userId, rawContent, emoji, writtenAt, mode를 담은 커맨드 객체
-     * @return 저장된 일기의 응답 DTO
+     * @param command userId, rawContent, emoji, writtenAt, mode, images를 담은 커맨드 객체
+     * @return 저장된 일기의 응답 DTO (mediaUrls 포함)
      * @throws IllegalArgumentException 존재하지 않는 userId인 경우
+     * @throws UncheckedIOException     GCS 업로드 실패 시
      */
+    @Transactional
     public DiaryResponse saveDiary(DiarySaveCommand command) {
         UserVO user = userRepository.findById(command.userId())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + command.userId()));
@@ -68,7 +74,42 @@ public class DiaryService {
                 .build();
 
         DiaryEntryVO saved = diaryEntryRepository.save(diary);
+
+        List<DiaryMediaVO> savedMedia = saveMediaFiles(saved, command.images());
+        saved.setMedia(savedMedia);
+
         return DiaryResponse.from(saved);
+    }
+
+    /**
+     * 이미지 파일 목록을 GCS에 업로드하고 {@code diary_media} 테이블에 저장한다.
+     * 이미지가 없으면 빈 리스트를 반환한다.
+     *
+     * @param diary  미디어를 연결할 일기 엔티티
+     * @param images 업로드할 이미지 파일 목록
+     * @return 저장된 {@link DiaryMediaVO} 목록
+     * @throws UncheckedIOException GCS 업로드 실패 시
+     */
+    private List<DiaryMediaVO> saveMediaFiles(DiaryEntryVO diary, List<MultipartFile> images) {
+        if (images == null || images.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<DiaryMediaVO> result = new ArrayList<>();
+        for (MultipartFile image : images) {
+            try {
+                String url = gcsStorageService.upload(image, "uploads/images");
+                DiaryMediaVO media = DiaryMediaVO.builder()
+                        .diary(diary)
+                        .type(DiaryMediaVO.Type.IMAGE)
+                        .gcsUrl(url)
+                        .fileSize((int) image.getSize())
+                        .build();
+                result.add(diaryMediaRepository.save(media));
+            } catch (IOException e) {
+                throw new UncheckedIOException("이미지 업로드 실패: " + image.getOriginalFilename(), e);
+            }
+        }
+        return result;
     }
 
     /**
@@ -81,6 +122,7 @@ public class DiaryService {
      * @return 조회된 일기 응답 DTO
      * @throws NoSuchElementException 일기가 존재하지 않거나 본인 소유가 아닌 경우
      */
+    @Transactional(readOnly = true)
     public DiaryResponse getDiary(Long diaryId, Long userId) {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
@@ -97,6 +139,7 @@ public class DiaryService {
      * @param month  조회 월 (1~12)
      * @return 해당 월의 일기 목록 (작성일 오름차순)
      */
+    @Transactional(readOnly = true)
     public List<DiaryResponse> getDiariesByMonth(Long userId, int year, int month) {
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
@@ -265,7 +308,7 @@ public class DiaryService {
         List<String> urls = new ArrayList<>();
         for (MultipartFile image : images) {
             try {
-                urls.add(gcsStorageService.upload(image, "diary/images"));
+                urls.add(gcsStorageService.upload(image, "uploads/images"));
             } catch (IOException e) {
                 throw new UncheckedIOException("이미지 업로드 실패: " + image.getOriginalFilename(), e);
             }

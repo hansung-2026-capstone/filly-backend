@@ -34,7 +34,7 @@ public class GcsStorageService {
      * 로컬 환경({@code storage.enabled=false})에서는 업로드를 생략하고 플레이스홀더 URL을 반환한다.
      *
      * @param file   업로드할 Multipart 파일
-     * @param folder GCS 내 저장 경로 (예: {@code "diary/images"})
+     * @param folder GCS 내 저장 경로 (예: {@code "uploads/images"})
      * @return 업로드된 파일의 GCS 공개 URL
      * @throws IOException 파일 읽기 또는 GCS 업로드 실패 시
      */

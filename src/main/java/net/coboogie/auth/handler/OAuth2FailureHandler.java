@@ -27,6 +27,14 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(), Map.of("error", "Authentication failed"));
+
+        // 에러 메시지를 로그로 찍고, 응답에도 담아줍니다.
+        System.out.println("OAuth2 Login Failure: " + exception.getMessage());
+        exception.printStackTrace();
+
+        objectMapper.writeValue(response.getWriter(), Map.of(
+                "error", "Authentication failed",
+                "message", exception.getMessage() // 구체적인 에러 메시지 추가
+        ));
     }
 }

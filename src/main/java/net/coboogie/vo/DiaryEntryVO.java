@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "diary_entries")
@@ -42,6 +43,9 @@ public class DiaryEntryVO {
 
     @Column(name = "written_at", nullable = false)
     private LocalDate writtenAt;
+
+    @OneToMany(mappedBy = "diary", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DiaryMediaVO> media;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
