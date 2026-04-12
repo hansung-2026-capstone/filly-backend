@@ -97,7 +97,7 @@ public class DiaryService {
         List<DiaryMediaVO> result = new ArrayList<>();
         for (MultipartFile image : images) {
             try {
-                String url = gcsStorageService.upload(image, "diary/images");
+                String url = gcsStorageService.upload(image, "uploads/images");
                 DiaryMediaVO media = DiaryMediaVO.builder()
                         .diary(diary)
                         .type(DiaryMediaVO.Type.IMAGE)
@@ -308,7 +308,7 @@ public class DiaryService {
         List<String> urls = new ArrayList<>();
         for (MultipartFile image : images) {
             try {
-                urls.add(gcsStorageService.upload(image, "diary/images"));
+                urls.add(gcsStorageService.upload(image, "uploads/images"));
             } catch (IOException e) {
                 throw new UncheckedIOException("이미지 업로드 실패: " + image.getOriginalFilename(), e);
             }

@@ -92,7 +92,7 @@ class DiaryServiceTest {
         String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/diary/images/uuid_photo.jpg";
         AiDraftResult aiResult = new AiDraftResult("이미지 속 풍경이 아름다웠다.", "CALM", 0.7f, 6, List.of("풍경"));
 
-        given(gcsStorageService.upload(mockImage, "diary/images")).willReturn(gcsUrl);
+        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(gcsUrl);
         given(aiDraftGeneratorService.generate(any(), anyList(), any(), any())).willReturn(aiResult);
 
         // when
@@ -100,7 +100,7 @@ class DiaryServiceTest {
 
         // then
         assertThat(response.mediaUrls()).containsExactly(gcsUrl);
-        verify(gcsStorageService).upload(mockImage, "diary/images");
+        verify(gcsStorageService).upload(mockImage, "uploads/images");
     }
 
     @Test
@@ -207,7 +207,7 @@ class DiaryServiceTest {
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
         given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
-        given(gcsStorageService.upload(mockImage, "diary/images")).willReturn(gcsUrl);
+        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(gcsUrl);
         given(diaryMediaRepository.save(any(DiaryMediaVO.class))).willReturn(savedMedia);
 
         // when
@@ -216,7 +216,7 @@ class DiaryServiceTest {
         // then
         assertThat(response.id()).isEqualTo(10L);
         assertThat(response.mediaUrls()).containsExactly(gcsUrl);
-        verify(gcsStorageService).upload(mockImage, "diary/images");
+        verify(gcsStorageService).upload(mockImage, "uploads/images");
         verify(diaryMediaRepository).save(any(DiaryMediaVO.class));
     }
 
