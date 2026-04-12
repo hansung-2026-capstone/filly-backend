@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 로그인 흐름: {@code /home.html} → OAuth2 소셜 로그인 → accessToken 복사 → Swagger Authorize에 입력
  */
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Auth", description = "인증 관련 API")
 public class AuthController {

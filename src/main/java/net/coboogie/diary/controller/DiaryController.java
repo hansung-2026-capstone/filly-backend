@@ -31,7 +31,7 @@ import java.util.List;
  * SecurityContext에 저장한 {@code userId} (DB PK, Long 타입)이다.
  */
 @RestController
-@RequestMapping("/api/v1/diaries")
+@RequestMapping("/v1/diaries")
 @RequiredArgsConstructor
 @Tag(name = "Diary", description = "일기 관련 API")
 @SecurityRequirement(name = "bearerAuth")

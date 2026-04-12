@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
  * 모든 요청은 JWT 인증이 필요하며, {@code Authorization: Bearer <token>} 헤더를 포함해야 한다.
  */
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping("/v1/users")
 @RequiredArgsConstructor
 @Tag(name = "User", description = "사용자 관련 API")
 @SecurityRequirement(name = "bearerAuth")
