@@ -14,9 +14,9 @@ import java.io.IOException;
 /**
  * OAuth2 소셜 로그인 성공 핸들러.
  * <p>
- * 인증 성공 시 JWT를 생성하고 홈화면({@code /home.html})으로 리다이렉트한다.
+ * 인증 성공 시 JWT를 생성하고 프론트엔드 홈({@code https://filly-diary.com/})으로 리다이렉트한다.
  * accessToken과 refreshToken을 쿼리 파라미터로 전달하면,
- * 클라이언트(home.html)가 이를 localStorage에 저장하여 이후 API 호출에 사용한다.
+ * 클라이언트가 이를 localStorage에 저장하여 이후 API 호출에 사용한다.
  */
 @Component
 @RequiredArgsConstructor
@@ -24,9 +24,11 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
 
+    private static final String FRONTEND_REDIRECT_URL = "https://filly-diary.com/";
+
     /**
      * 로그인 성공 시 호출된다.
-     * JWT를 생성한 뒤 {@code /home.html?accessToken=...&refreshToken=...}으로 리다이렉트한다.
+     * JWT를 생성한 뒤 {@code https://filly-diary.com/?accessToken=...&refreshToken=...}으로 리다이렉트한다.
      *
      * @param request        HTTP 요청
      * @param response       HTTP 응답
@@ -43,6 +45,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String accessToken = jwtTokenProvider.generateAccessToken(userId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
 
-        response.sendRedirect("/home.html?accessToken=" + accessToken + "&refreshToken=" + refreshToken);
+        response.sendRedirect(FRONTEND_REDIRECT_URL + "?accessToken=" + accessToken + "&refreshToken=" + refreshToken);
     }
 }
