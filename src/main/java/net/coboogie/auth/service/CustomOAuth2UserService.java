@@ -70,7 +70,13 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             case "google" -> oAuth2User.getAttribute("name");
             case "kakao" -> {
                 Map<String, Object> kakaoAccount = oAuth2User.getAttribute("kakao_account");
+                if (kakaoAccount == null) {
+                    yield "User_" + (int)(Math.random() * 100000);
+                }
                 Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
+                if (profile == null || profile.get("nickname") == null) {
+                    yield "User_" + (int)(Math.random() * 100000);
+                }
                 yield (String) profile.get("nickname");
             }
             case "naver" -> {
