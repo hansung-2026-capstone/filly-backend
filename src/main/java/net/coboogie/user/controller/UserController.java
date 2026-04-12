@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import net.coboogie.common.response.ApiResponse;
 import net.coboogie.user.dto.NicknameUpdateRequest;
+import net.coboogie.user.dto.UserResponse;
 import net.coboogie.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,6 +27,27 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+
+    /**
+     * 현재 인증된 사용자의 정보를 반환한다.
+     *
+     * @param userId JWT에서 추출한 인증 사용자 ID
+     * @return 사용자 정보 (id, nickname, avatarUrl, bgUrl, createdAt)
+     */
+    @GetMapping("/me")
+    @Operation(
+            summary = "내 정보 조회",
+            description = "현재 로그인한 사용자의 정보를 반환합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    public ResponseEntity<ApiResponse<UserResponse>> getMe(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(userService.getMe(userId)));
+    }
 
     /**
      * 현재 인증된 사용자의 닉네임을 수정한다.
