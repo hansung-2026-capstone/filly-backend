@@ -75,7 +75,13 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             }
             case "naver" -> {
                 Map<String, Object> response = oAuth2User.getAttribute("response");
-                yield (String) response.get("nickname");
+                if(response.get("nickname") != null) {
+                    yield (String) response.get("nickname");
+                } else if (response.get("name") != null) {
+                    yield (String) response.get("name");
+                } else {
+                    yield "User " + Integer.toString((int)( Math.random() * 100000));
+                }
             }
             default -> throw new OAuth2AuthenticationException("Unsupported provider: " + provider);
         };
