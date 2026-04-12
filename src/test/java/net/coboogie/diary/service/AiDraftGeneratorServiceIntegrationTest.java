@@ -1,5 +1,6 @@
 package net.coboogie.diary.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.vertexai.VertexAI;
 import net.coboogie.diary.dto.AiDraftResult;
 import org.junit.jupiter.api.AfterEach;
@@ -44,7 +45,7 @@ class AiDraftGeneratorServiceIntegrationTest {
 
         ChatClient chatClient = ChatClient.builder(chatModel).build();
 
-        sut = new AiDraftGeneratorService(chatClient);
+        sut = new AiDraftGeneratorService(chatClient, new ObjectMapper());
     }
 
     @AfterEach
