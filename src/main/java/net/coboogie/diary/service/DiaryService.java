@@ -315,4 +315,23 @@ public class DiaryService {
         }
         return urls;
     }
+
+    /**
+     * 특정 연월의 일기 목록을 조회하여 반환한다.
+     * <p>
+     * 해당 월의 첫째 날부터 마지막 날까지 범위로 조회하며, 작성일 오름차순으로 정렬된다.
+     *
+     * @param userId JWT 인증 사용자 ID
+     * @return 해당 월의 일기 목록 (작성일 오름차순)
+     */
+    @Transactional(readOnly = true)
+    public List<DiaryResponse> getAllDiaries(Long userId){
+
+
+        return diaryEntryRepository.findAllByUser_Id(userId)
+                .stream()
+                .map(DiaryResponse::from)
+                .toList();
+
+    }
 }
