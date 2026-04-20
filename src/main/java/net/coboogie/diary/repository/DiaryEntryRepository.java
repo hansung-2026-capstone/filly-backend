@@ -30,4 +30,12 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntryVO, Long> 
      */
     List<DiaryEntryVO> findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
             Long userId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * 특정 사용자의 전체 일기 목록을 반환한다.
+     *
+     * @param userId 조회할 사용자 ID
+     * @return 해당 사용자의 전체 일기 목록
+     */
+    List<DiaryEntryVO> findAllByUser_Id(Long userId);
 }

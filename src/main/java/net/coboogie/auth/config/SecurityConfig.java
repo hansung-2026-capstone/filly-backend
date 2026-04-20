@@ -80,6 +80,7 @@ public class SecurityConfig {
                         .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/oauth2/**", "/login/**",            // OAuth2, 로그인
+                                "/v1/auth/refresh",                   // 토큰 갱신 (인증 불필요)
                                 "/swagger-ui/**", "/swagger-ui.html", // Swagger UI
                                 "/v3/api-docs/**",
                                 "/*.html", "/css/**", "/js/**"        // 정적 HTML 페이지

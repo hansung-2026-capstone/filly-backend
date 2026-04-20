@@ -96,7 +96,7 @@ class DiaryServiceTest {
                 .mode(DiaryEntryVO.Mode.IMAGE)
                 .build();
 
-        String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/diary/images/uuid_photo.jpg";
+        String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/uploads/images/uuid_photo.jpg";
         AiDraftResult aiResult = new AiDraftResult(
                 "이미지 속 풍경이 아름다웠다.",
                 List.of(new AiDraftResult.EmotionScore("평온", 0.7f)),
@@ -211,7 +211,7 @@ class DiaryServiceTest {
                 .images(List.of(mockImage))
                 .build();
 
-        String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/diary/images/photo.jpg";
+        String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/uploads/images/photo.jpg";
         DiaryEntryVO savedDiary = DiaryEntryVO.builder()
                 .id(10L).user(mockUser).writtenAt(WRITTEN_AT)
                 .mode(DiaryEntryVO.Mode.IMAGE).createdAt(LocalDateTime.now()).build();

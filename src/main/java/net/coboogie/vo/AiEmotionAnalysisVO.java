@@ -26,7 +26,7 @@ public class AiEmotionAnalysisVO {
     @Column(name = "emotions", columnDefinition = "JSON")
     private String emotions;
 
-    @Column(name = "happiness_index")
+    @Column(name = "happiness_index", comment="사용자 행복 지수")
     private Integer happinessIndex;
 
     // 레이어 2: 활동 / 장소 / 사람

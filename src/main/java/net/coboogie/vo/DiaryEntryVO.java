@@ -35,7 +35,7 @@ public class DiaryEntryVO {
     @Column(name = "raw_content", columnDefinition = "TEXT")
     private String rawContent;
 
-    @Column(name = "emoji")
+    @Column(name = "emoji", nullable = false)
     private String emoji;
 
     @Column(name = "star_rating")
