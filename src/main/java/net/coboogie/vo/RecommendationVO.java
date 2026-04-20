@@ -23,16 +23,23 @@ public class RecommendationVO {
     @JoinColumn(name = "user_id", nullable = false)
     private UserVO user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "main_category_id", nullable = false)
-    private MainCategoryVO mainCategory;
+    @Column(name = "iab_main_category", nullable = false, length = 50)
+    private String iabMainCategory;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_category_id", nullable = false)
-    private SubCategoryVO subCategory;
+    @Column(name = "iab_sub_category", length = 50)
+    private String iabSubCategory;
+
+    @Column(name = "content_type", nullable = false, length = 20)
+    private String contentType;
 
     @Column(name = "content_ref", columnDefinition = "JSON")
     private String contentRef;
+
+    @Column(name = "reason", columnDefinition = "TEXT")
+    private String reason;
+
+    @Column(name = "card_index")
+    private Integer cardIndex;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -226,10 +226,15 @@ public class DiaryService {
         return new DiaryDraftResponse(
                 aiResult.generatedText(),
                 new DiaryDraftResponse.AiAnalysis(
-                        aiResult.emotionType(),
-                        aiResult.emotionScore(),
-                        aiResult.moodIndex(),
-                        aiResult.detectedKeywords()
+                        aiResult.emotions(),
+                        aiResult.happinessIndex(),
+                        aiResult.activities(),
+                        aiResult.places(),
+                        aiResult.people(),
+                        aiResult.iabCategories(),
+                        aiResult.patterns(),
+                        aiResult.moodSummary(),
+                        aiResult.tone()
                 ),
                 mediaUrls
         );

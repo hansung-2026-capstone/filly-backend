@@ -61,8 +61,15 @@ class DiaryServiceTest {
 
         AiDraftResult aiResult = new AiDraftResult(
                 "오늘 따뜻한 햇살이 기분을 밝게 해주었다.",
-                "HAPPY", 0.85f, 8,
-                List.of("날씨", "햇살", "기분")
+                List.of(new AiDraftResult.EmotionScore("기쁨", 0.8f)),
+                75,
+                List.of("산책"),
+                List.of("공원"),
+                List.of(),
+                List.of("라이프스타일>자기계발"),
+                new AiDraftResult.Patterns("오후", 7, "혼자", false, null, "맑음", "좋음", "언급없음"),
+                "따뜻했던 하루",
+                "실시간"
         );
         given(aiDraftGeneratorService.generate(anyString(), anyList(), any(), any())).willReturn(aiResult);
 
@@ -71,8 +78,8 @@ class DiaryServiceTest {
 
         // then
         assertThat(response.generatedText()).isEqualTo("오늘 따뜻한 햇살이 기분을 밝게 해주었다.");
-        assertThat(response.aiAnalysis().emotionType()).isEqualTo("HAPPY");
-        assertThat(response.aiAnalysis().moodIndex()).isEqualTo(8);
+        assertThat(response.aiAnalysis().emotions()).hasSize(1);
+        assertThat(response.aiAnalysis().happinessIndex()).isEqualTo(75);
         assertThat(response.mediaUrls()).isEmpty();
         verifyNoInteractions(gcsStorageService);
     }
@@ -90,7 +97,14 @@ class DiaryServiceTest {
                 .build();
 
         String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/uploads/images/uuid_photo.jpg";
-        AiDraftResult aiResult = new AiDraftResult("이미지 속 풍경이 아름다웠다.", "CALM", 0.7f, 6, List.of("풍경"));
+        AiDraftResult aiResult = new AiDraftResult(
+                "이미지 속 풍경이 아름다웠다.",
+                List.of(new AiDraftResult.EmotionScore("평온", 0.7f)),
+                60,
+                List.of(), List.of(), List.of(), List.of(),
+                new AiDraftResult.Patterns("오후", 5, "혼자", false, null, "없음", "보통", "언급없음"),
+                "잔잔한 하루", "실시간"
+        );
 
         given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(gcsUrl);
         given(aiDraftGeneratorService.generate(any(), anyList(), any(), any())).willReturn(aiResult);
