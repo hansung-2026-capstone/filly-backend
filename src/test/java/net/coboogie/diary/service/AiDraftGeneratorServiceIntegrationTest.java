@@ -44,7 +44,7 @@ class AiDraftGeneratorServiceIntegrationTest {
 
         ChatClient chatClient = ChatClient.builder(chatModel).build();
 
-        sut = new AiDraftGeneratorService(chatClient);
+        sut = new AiDraftGeneratorService(chatClient, new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     @AfterEach
@@ -68,16 +68,19 @@ class AiDraftGeneratorServiceIntegrationTest {
         // then
         System.out.println("=== Gemini 응답 ===");
         System.out.println("일기: " + result.generatedText());
-        System.out.println("감정: " + result.emotionType());
-        System.out.println("감정 점수: " + result.emotionScore());
-        System.out.println("기분 지수: " + result.moodIndex());
-        System.out.println("키워드: " + result.detectedKeywords());
+        System.out.println("감정: " + result.emotions());
+        System.out.println("행복지수: " + result.happinessIndex());
+        System.out.println("활동: " + result.activities());
+        System.out.println("장소: " + result.places());
+        System.out.println("사람: " + result.people());
+        System.out.println("IAB: " + result.iabCategories());
+        System.out.println("패턴: " + result.patterns());
+        System.out.println("요약: " + result.moodSummary());
 
         assertThat(result.generatedText()).isNotBlank();
-        assertThat(result.emotionType()).isIn("CALM", "HAPPY", "ANXIOUS", "SAD", "ANGRY");
-        assertThat(result.emotionScore()).isBetween(0.0f, 1.0f);
-        assertThat(result.moodIndex()).isBetween(1, 10);
-        assertThat(result.detectedKeywords()).isNotEmpty();
+        assertThat(result.emotions()).isNotEmpty();
+        assertThat(result.happinessIndex()).isBetween(0, 100);
+        assertThat(result.moodSummary()).isNotBlank();
     }
 
     @Test
@@ -94,9 +97,10 @@ class AiDraftGeneratorServiceIntegrationTest {
         // then
         System.out.println("=== Gemini 응답 (텍스트 + 캡션) ===");
         System.out.println("일기: " + result.generatedText());
-        System.out.println("감정: " + result.emotionType() + " / 점수: " + result.emotionScore());
+        System.out.println("감정: " + result.emotions());
+        System.out.println("요약: " + result.moodSummary());
 
         assertThat(result.generatedText()).isNotBlank();
-        assertThat(result.emotionType()).isNotBlank();
+        assertThat(result.emotions()).isNotEmpty();
     }
 }

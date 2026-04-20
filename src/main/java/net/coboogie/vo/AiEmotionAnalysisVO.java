@@ -6,17 +6,13 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ai_emotion_analysis")
+@Table(name = "ai_diary_analysis")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class AiEmotionAnalysisVO {
-
-    public enum EmotionType {
-        CALM, HAPPY, ANXIOUS, SAD, ANGRY
-    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,18 +22,37 @@ public class AiEmotionAnalysisVO {
     @JoinColumn(name = "diary_id", nullable = false)
     private DiaryEntryVO diary;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "emotion_type", nullable = false)
-    private EmotionType emotionType;
+    // 레이어 1: 감정 (상위 3~5개, {"name": "기쁨", "score": 0.35})
+    @Column(name = "emotions", columnDefinition = "JSON")
+    private String emotions;
 
-    @Column(name = "score", nullable = false)
-    private Float score;
+    @Column(name = "happiness_index")
+    private Integer happinessIndex;
 
-    @Column(name = "mood_index", nullable = false)
-    private Integer moodIndex;
+    // 레이어 2: 활동 / 장소 / 사람
+    @Column(name = "activities", columnDefinition = "JSON")
+    private String activities;
 
-    @Column(name = "detected_keywords", columnDefinition = "JSON")
-    private String detectedKeywords;
+    @Column(name = "places", columnDefinition = "JSON")
+    private String places;
+
+    @Column(name = "people", columnDefinition = "JSON")
+    private String people;
+
+    // 레이어 3: IAB 취향 태그
+    @Column(name = "iab_categories", columnDefinition = "JSON")
+    private String iabCategories;
+
+    // 레이어 4: 일상 패턴 (time_of_day, energy_level, social, spending, weather, health, sleep)
+    @Column(name = "patterns", columnDefinition = "JSON")
+    private String patterns;
+
+    // 레이어 5: 메타
+    @Column(name = "mood_summary", columnDefinition = "TEXT")
+    private String moodSummary;
+
+    @Column(name = "tone", length = 20)
+    private String tone;
 
     @CreationTimestamp
     @Column(name = "analyzed_at", nullable = false, updatable = false)

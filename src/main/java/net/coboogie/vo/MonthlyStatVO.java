@@ -30,12 +30,6 @@ public class MonthlyStatVO {
     @Column(name = "diary_count")
     private Integer diaryCount;
 
-    @Column(name = "avg_mood")
-    private Float avgMood;
-
-    @Column(name = "top_emotion")
-    private String topEmotion;
-
     @Column(name = "total_chars")
     private Integer totalChars;
 
@@ -48,8 +42,8 @@ public class MonthlyStatVO {
     @Column(name = "top_people", columnDefinition = "JSON")
     private String topPeople;
 
-    @Column(name = "daily_mood_series", columnDefinition = "JSON")
-    private String dailyMoodSeries;
+    @Column(name = "daily_pattern", columnDefinition = "JSON")
+    private String dailyPattern;
 
     @CreationTimestamp
     @Column(name = "calculated_at", nullable = false, updatable = false)
