@@ -18,6 +18,7 @@ public record UserResponse(
         String nickname,
         String currentAvatarUrl,
         String currentBgUrl,
+        String backgroundTheme,
         LocalDateTime createdAt
 ) {
     public static UserResponse from(UserVO user) {
@@ -26,6 +27,7 @@ public record UserResponse(
                 user.getNickname(),
                 user.getCurrentAvatarUrl(),
                 user.getCurrentBgUrl(),
+                user.getBackgroundTheme(),
                 user.getCreatedAt()
         );
     }

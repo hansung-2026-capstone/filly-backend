@@ -35,6 +35,9 @@ public class UserVO {
     @Column(name = "current_bg_url", columnDefinition = "TEXT")
     private String currentBgUrl;
 
+    @Column(name = "background_theme", columnDefinition = "TEXT")
+    private String backgroundTheme;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
