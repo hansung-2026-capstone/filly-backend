@@ -53,3 +53,6 @@ src/mysql_data/
 **/*.sql
 
 .DS_Store
+
+### Claude Code personal context ###
+.claude/CLAUDE.md

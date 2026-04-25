@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *      (filly-fastapi 레포 참조: docker run -d -p 8000:8000 filly-fastapi-server)
  *   2. src/test/resources/test.jpg 이미지 파일이 존재해야 합니다.
  */
+@org.junit.jupiter.api.Disabled("FastAPI 실서버 필요 - 수동 실행 테스트")
 class ImageAnalysisServiceIntegrationTest {
 
     private static final String FASTAPI_URL = "http://localhost:8000";

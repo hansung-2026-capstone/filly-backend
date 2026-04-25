@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtd/configuration_1_3.dtd">
+
+<!--
+  net.coboogie 프로젝트 Checkstyle 규칙
+  주요 검사: 패키지 이름, 네이밍, public 타입/메서드 Javadoc, 임포트 정리
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- 기존 코드 면제 목록 -->
+    <module name="SuppressionFilter">
+        <property name="file" value="${config_loc}/suppressions.xml"/>
+    </module>
+
+    <!-- 최대 줄 길이 150자 -->
+    <module name="LineLength">
+        <property name="max" value="150"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+
+    <!-- 파일 끝 개행 필수 -->
+    <module name="NewlineAtEndOfFile"/>
+
+    <module name="TreeWalker">
+
+        <!-- ===== 패키지 이름: net.coboogie 로 시작 ===== -->
+        <module name="PackageName">
+            <property name="format" value="^net\.coboogie(\.[a-z][a-z0-9_]*)*$"/>
+            <message key="name.invalidPattern"
+                value="패키지 이름 ''{0}''은 ''net.coboogie.*'' 형식이어야 합니다."/>
+        </module>
+
+        <!-- ===== Javadoc: public 클래스·인터페이스·enum ===== -->
+        <module name="MissingJavadocType">
+            <property name="scope" value="public"/>
+            <property name="tokens" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF"/>
+        </module>
+
+        <!-- ===== Javadoc: public 메서드 (getter/setter 제외) ===== -->
+        <module name="MissingJavadocMethod">
+            <property name="scope" value="public"/>
+            <property name="allowMissingPropertyJavadoc" value="true"/>
+            <property name="ignoreMethodNamesRegex" value="^(get|set|is)[A-Z].*$"/>
+            <property name="tokens" value="METHOD_DEF"/>
+        </module>
+
+        <!-- ===== 네이밍 규칙 ===== -->
+        <module name="TypeName"/>
+        <module name="MethodName"/>
+        <module name="ConstantName"/>
+        <module name="LocalVariableName"/>
+        <module name="ParameterName"/>
+        <module name="MemberName"/>
+
+        <!-- ===== 임포트 규칙 ===== -->
+        <module name="AvoidStarImport"/>
+        <module name="RedundantImport"/>
+        <module name="UnusedImports"/>
+
+        <!-- ===== 기본 코드 품질 ===== -->
+        <!-- 빈 블록 금지 (catch 제외) -->
+        <module name="EmptyBlock">
+            <property name="option" value="text"/>
+            <property name="tokens" value="LITERAL_WHILE, LITERAL_TRY, LITERAL_FINALLY,
+                LITERAL_DO, LITERAL_IF, LITERAL_ELSE, LITERAL_FOR,
+                INSTANCE_INIT, STATIC_INIT, LITERAL_SWITCH, LITERAL_SYNCHRONIZED"/>
+        </module>
+        <!-- if/for/while/do 중괄호 필수 -->
+        <module name="NeedBraces"/>
+        <!-- String == 비교 금지 -->
+        <module name="StringLiteralEquality"/>
+
+    </module>
+</module>

@@ -33,6 +33,26 @@ public class UserService {
     }
 
     /**
+     * 사용자의 배경화면 테마를 수정한다.
+     *
+     * @param userId          JWT 인증 사용자 ID
+     * @param backgroundTheme 변경할 배경 테마 식별자
+     * @throws NoSuchElementException   사용자가 존재하지 않는 경우
+     * @throws IllegalArgumentException 테마 값이 null이거나 공백인 경우
+     */
+    @Transactional
+    public void updateBackgroundTheme(Long userId, String backgroundTheme) {
+        if (backgroundTheme == null || backgroundTheme.isBlank()) {
+            throw new IllegalArgumentException("배경 테마는 비워 둘 수 없습니다.");
+        }
+
+        UserVO user = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+
+        user.setBackgroundTheme(backgroundTheme);
+    }
+
+    /**
      * 사용자의 닉네임을 수정한다.
      *
      * @param userId   JWT 인증 사용자 ID
