@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * CI에서는 실행되지 않도록 @Disabled 처리. 로컬에서 수동 실행.
  */
-//@Disabled("로컬 ADC 인증 필요 - 수동 실행 테스트")  // 실행 시 이 줄 삭제
+@Disabled("로컬 ADC 인증 필요 - 수동 실행 테스트")
 class SpeechToTextServiceIntegrationTest {
 
     private static final String PROJECT_ID = "filly-492515";
