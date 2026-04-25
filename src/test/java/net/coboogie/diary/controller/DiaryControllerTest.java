@@ -1,6 +1,7 @@
 package net.coboogie.diary.controller;
 
 import net.coboogie.common.response.ApiResponse;
+import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiaryResponse;
@@ -58,7 +59,17 @@ class DiaryControllerTest {
         // given
         DiaryDraftResponse draftResponse = new DiaryDraftResponse(
                 "AI가 생성한 일기 초안",
-                new DiaryDraftResponse.AiAnalysis("HAPPY", 0.9f, 8, List.of("한강", "치킨")),
+                new DiaryDraftResponse.AiAnalysis(
+                        List.of(new AiDraftResult.EmotionScore("HAPPY", 0.9f)),
+                        8,
+                        List.of("한강", "치킨"),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        null,
+                        "행복한 하루",
+                        "회고적"
+                ),
                 List.of()
         );
         given(diaryService.createDraft(any(DiaryDraftCommand.class))).willReturn(draftResponse);
@@ -74,8 +85,8 @@ class DiaryControllerTest {
         assertThat(body).isNotNull();
         assertThat(body.success()).isTrue();
         assertThat(body.data().generatedText()).isEqualTo("AI가 생성한 일기 초안");
-        assertThat(body.data().aiAnalysis().emotionType()).isEqualTo("HAPPY");
-        assertThat(body.data().aiAnalysis().moodIndex()).isEqualTo(8);
+        assertThat(body.data().aiAnalysis().emotions().get(0).name()).isEqualTo("HAPPY");
+        assertThat(body.data().aiAnalysis().happinessIndex()).isEqualTo(8);
     }
 
     // ─────────────────────────────────────────
