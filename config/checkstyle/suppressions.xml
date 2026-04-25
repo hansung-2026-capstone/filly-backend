@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtd/suppressions_1_2.dtd">
+
+<!--
+  기존 코드 일괄 면제 — 아래 파일들은 Checkstyle 검사에서 제외됨.
+  신규 도메인(persona, stats, share, recommendation 등)은 면제 없이 규칙 적용.
+-->
+<suppressions>
+    <!-- VO 패키지 전체 -->
+    <suppress files="net.coboogie.vo" checks=".*"/>
+    <!-- auth 패키지 전체 -->
+    <suppress files="net.coboogie.auth" checks=".*"/>
+    <!-- blip 패키지 전체 -->
+    <suppress files="net.coboogie.blip" checks=".*"/>
+    <!-- common/config -->
+    <suppress files="net.coboogie.common.config" checks=".*"/>
+    <!-- root config -->
+    <suppress files="net.coboogie.config" checks=".*"/>
+    <!-- diary: 컨트롤러, 리포지토리 (서비스/dto는 이미 규칙 준수) -->
+    <suppress files="DiaryController\.java" checks=".*"/>
+    <suppress files="net.coboogie.diary.repository" checks=".*"/>
+    <!-- user: 컨트롤러, dto, 리포지토리 -->
+    <suppress files="net.coboogie.user.controller" checks=".*"/>
+    <suppress files="UserResponse\.java" checks=".*"/>
+    <suppress files="net.coboogie.user.repository" checks=".*"/>
+    <!-- 진입점 -->
+    <suppress files="FillyBackendApplication\.java" checks=".*"/>
+    <suppress files="ServletInitializer\.java" checks=".*"/>
+    <!-- 기존 테스트 파일 전체 -->
+    <suppress files="[\\/]test[\\/]" checks=".*"/>
+</suppressions>
