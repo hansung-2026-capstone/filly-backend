@@ -36,6 +36,8 @@ class SpeechToTextServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(sut, "projectId", "test-project");
         ReflectionTestUtils.setField(sut, "location", "us-central1");
+        // wav는 SUPPORTED_EXTENSIONS에 포함되어 getBytes() 경로로 진입하게 함
+        given(voiceFile.getOriginalFilename()).willReturn("test.wav");
     }
 
     // ─────────────────────────────────────────────
