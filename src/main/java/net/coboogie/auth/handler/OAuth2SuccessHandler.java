@@ -29,6 +29,9 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     /**
      * 로그인 성공 시 호출된다.
      * JWT를 생성한 뒤 {@code https://filly-diary.com/?accessToken=...&refreshToken=...}으로 리다이렉트한다.
+     * <p>
+     * Firebase CDN 등 중간 레이어가 이 응답을 캐싱하면 다른 사용자가 이전 사용자의 토큰을 받는
+     * 보안 문제가 발생하므로, Cache-Control: no-store 헤더를 명시적으로 설정한다.
      *
      * @param request        HTTP 요청
      * @param response       HTTP 응답
@@ -45,6 +48,9 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String accessToken = jwtTokenProvider.generateAccessToken(userId);
         String refreshToken = jwtTokenProvider.generateRefreshToken(userId);
 
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        System.out.println("[OAuth2SuccessHandler] userId=" + userId + " 로그인 성공");
         response.sendRedirect(FRONTEND_REDIRECT_URL + "?accessToken=" + accessToken + "&refreshToken=" + refreshToken);
     }
 }
