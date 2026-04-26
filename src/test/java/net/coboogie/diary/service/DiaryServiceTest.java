@@ -1,13 +1,19 @@
 package net.coboogie.diary.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiaryUpdateRequest;
+import net.coboogie.diary.repository.AiDiaryResultRepository;
+import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.diary.repository.DiaryMediaRepository;
+import net.coboogie.vo.AiDiaryResultVO;
+import net.coboogie.vo.AiEmotionAnalysisVO;
 import net.coboogie.vo.DiaryEntryVO;
 import net.coboogie.vo.DiaryMediaVO;
 import net.coboogie.vo.UserVO;
@@ -42,6 +48,9 @@ class DiaryServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private DiaryEntryRepository diaryEntryRepository;
     @Mock private DiaryMediaRepository diaryMediaRepository;
+    @Mock private AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
+    @Mock private AiDiaryResultRepository aiDiaryResultRepository;
+    @Mock private ObjectMapper objectMapper;
 
     @InjectMocks
     private DiaryService sut;
@@ -253,6 +262,71 @@ class DiaryServiceTest {
                 .hasMessageContaining("사용자를 찾을 수 없습니다");
 
         verifyNoInteractions(diaryEntryRepository);
+    }
+
+    @Test
+    @DisplayName("aiAnalysis 포함 시 ai_diary_analysis 저장")
+    void givenAiAnalysis_whenSaveDiary_thenSaveEmotionAnalysis() throws JsonProcessingException {
+        // given
+        Long userId = 1L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO savedDiary = DiaryEntryVO.builder()
+                .id(10L).user(mockUser).rawContent("내용")
+                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .createdAt(LocalDateTime.now()).build();
+
+        DiaryDraftResponse.AiAnalysis aiAnalysis = new DiaryDraftResponse.AiAnalysis(
+                List.of(new AiDraftResult.EmotionScore("기쁨", 0.8f)),
+                75,
+                List.of("산책"),
+                List.of("공원"),
+                List.of(),
+                List.of("라이프스타일"),
+                new AiDraftResult.Patterns("오후", 7, "혼자", false, null, "맑음", "좋음", "언급없음"),
+                "따뜻한 하루",
+                "실시간"
+        );
+
+        DiarySaveCommand command = DiarySaveCommand.builder()
+                .userId(userId).rawContent("내용").writtenAt(WRITTEN_AT)
+                .mode(DiaryEntryVO.Mode.DEFAULT).aiAnalysis(aiAnalysis).build();
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
+        given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
+        given(objectMapper.writeValueAsString(any())).willReturn("[]");
+
+        // when
+        sut.saveDiary(command);
+
+        // then
+        verify(aiEmotionAnalysisRepository).save(any(AiEmotionAnalysisVO.class));
+        verify(aiDiaryResultRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("generatedText 포함 시 ai_diary_results 저장")
+    void givenGeneratedText_whenSaveDiary_thenSaveAiDiaryResult() {
+        // given
+        Long userId = 1L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO savedDiary = DiaryEntryVO.builder()
+                .id(10L).user(mockUser).rawContent("내용")
+                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .createdAt(LocalDateTime.now()).build();
+
+        DiarySaveCommand command = DiarySaveCommand.builder()
+                .userId(userId).rawContent("내용").writtenAt(WRITTEN_AT)
+                .mode(DiaryEntryVO.Mode.DEFAULT).generatedText("AI가 작성한 일기").build();
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
+        given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
+
+        // when
+        sut.saveDiary(command);
+
+        // then
+        verify(aiDiaryResultRepository).save(any(AiDiaryResultVO.class));
+        verify(aiEmotionAnalysisRepository, never()).save(any());
     }
 
     // ─────────────────────────────────────────────────────

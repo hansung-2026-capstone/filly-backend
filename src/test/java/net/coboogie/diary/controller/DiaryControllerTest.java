@@ -173,7 +173,7 @@ class DiaryControllerTest {
 
         // when
         ResponseEntity<ApiResponse<DiaryResponse>> response = diaryController.saveDiary(
-                USER_ID, "저장된 일기 본문", null, "2026-04-11", "DEFAULT", null
+                USER_ID, "저장된 일기 본문", null, "2026-04-11", "DEFAULT", null, null, null
         );
 
         // then
