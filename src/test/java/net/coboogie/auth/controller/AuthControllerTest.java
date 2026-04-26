@@ -1,7 +1,7 @@
 package net.coboogie.auth.controller;
 
 import net.coboogie.auth.util.JwtTokenProvider;
-import org.junit.jupiter.api.BeforeEach;
+import net.coboogie.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +20,9 @@ class AuthControllerTest {
     @Mock
     private JwtTokenProvider jwtTokenProvider;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private AuthController authController;
 
@@ -33,6 +36,7 @@ class AuthControllerTest {
         // given
         given(jwtTokenProvider.validateToken(VALID_REFRESH_TOKEN)).willReturn(true);
         given(jwtTokenProvider.getUserIdFromToken(VALID_REFRESH_TOKEN)).willReturn(USER_ID);
+        given(userRepository.existsById(USER_ID)).willReturn(true);
         given(jwtTokenProvider.generateAccessToken(USER_ID)).willReturn("new.access.token");
         given(jwtTokenProvider.generateRefreshToken(USER_ID)).willReturn("new.refresh.token");
 
@@ -50,6 +54,27 @@ class AuthControllerTest {
         var tokenResponse = (net.coboogie.auth.dto.TokenResponse) data;
         assertThat(tokenResponse.getAccessToken()).isEqualTo("new.access.token");
         assertThat(tokenResponse.getRefreshToken()).isEqualTo("new.refresh.token");
+    }
+
+    @Test
+    @DisplayName("DB에 존재하지 않는 사용자의 refreshToken으로 갱신 시도 시 401 반환")
+    void givenDeletedUser_whenRefresh_thenReturn401() {
+        // given
+        given(jwtTokenProvider.validateToken(VALID_REFRESH_TOKEN)).willReturn(true);
+        given(jwtTokenProvider.getUserIdFromToken(VALID_REFRESH_TOKEN)).willReturn(USER_ID);
+        given(userRepository.existsById(USER_ID)).willReturn(false);
+
+        // when
+        ResponseEntity<?> response = authController.refresh(
+                new AuthController.TokenRefreshRequest(VALID_REFRESH_TOKEN)
+        );
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        var body = (net.coboogie.common.response.ApiResponse<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.success()).isFalse();
+        assertThat(body.message()).isEqualTo("존재하지 않는 사용자입니다.");
     }
 
     @Test
