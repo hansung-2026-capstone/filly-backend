@@ -7,7 +7,7 @@ import net.coboogie.vo.UserVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.NoSuchElementException;
+import net.coboogie.user.exception.UserNotFoundException;
 
 /**
  * 사용자 도메인 비즈니스 로직 서비스.
@@ -23,12 +23,12 @@ public class UserService {
      *
      * @param userId JWT 인증 사용자 ID
      * @return 사용자 정보 응답 DTO
-     * @throws NoSuchElementException 사용자가 존재하지 않는 경우
+     * @throws UserNotFoundException 사용자가 존재하지 않는 경우
      */
     @Transactional(readOnly = true)
     public UserResponse getMe(Long userId) {
         UserVO user = userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new UserNotFoundException(userId));
         return UserResponse.from(user);
     }
 
@@ -47,7 +47,7 @@ public class UserService {
         }
 
         UserVO user = userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
         user.setBackgroundTheme(backgroundTheme);
     }
@@ -67,7 +67,7 @@ public class UserService {
         }
 
         UserVO user = userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
         user.setNickname(nickname);
     }

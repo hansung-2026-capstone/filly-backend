@@ -105,7 +105,8 @@ class DiaryServiceTest {
                 .mode(DiaryEntryVO.Mode.IMAGE)
                 .build();
 
-        String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/uploads/images/uuid_photo.jpg";
+        String blobPath = "uploads/images/uuid_photo.jpg";
+        String signedUrl = "https://storage.googleapis.com/filly-media-bucket/" + blobPath + "?X-Goog-Signature=abc";
         AiDraftResult aiResult = new AiDraftResult(
                 "이미지 속 풍경이 아름다웠다.",
                 List.of(new AiDraftResult.EmotionScore("평온", 0.7f)),
@@ -115,15 +116,17 @@ class DiaryServiceTest {
                 "잔잔한 하루", "실시간"
         );
 
-        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(gcsUrl);
+        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(blobPath);
+        given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
         given(aiDraftGeneratorService.generate(any(), anyList(), any(), any())).willReturn(aiResult);
 
         // when
         DiaryDraftResponse response = sut.createDraft(command);
 
         // then
-        assertThat(response.mediaUrls()).containsExactly(gcsUrl);
+        assertThat(response.mediaUrls()).containsExactly(signedUrl);
         verify(gcsStorageService).upload(mockImage, "uploads/images");
+        verify(gcsStorageService).generateSignedUrl(blobPath);
     }
 
     @Test
@@ -220,17 +223,19 @@ class DiaryServiceTest {
                 .images(List.of(mockImage))
                 .build();
 
-        String gcsUrl = "https://storage.googleapis.com/filly-media-bucket/uploads/images/photo.jpg";
+        String blobPath = "uploads/images/photo.jpg";
+        String signedUrl = "https://storage.googleapis.com/filly-media-bucket/" + blobPath + "?X-Goog-Signature=abc";
         DiaryEntryVO savedDiary = DiaryEntryVO.builder()
                 .id(10L).user(mockUser).writtenAt(WRITTEN_AT)
                 .mode(DiaryEntryVO.Mode.IMAGE).createdAt(LocalDateTime.now()).build();
         DiaryMediaVO savedMedia = DiaryMediaVO.builder()
                 .id(1L).diary(savedDiary).type(DiaryMediaVO.Type.IMAGE)
-                .gcsUrl(gcsUrl).fileSize(1024).build();
+                .gcsUrl(blobPath).fileSize(1024).build();
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
         given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
-        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(gcsUrl);
+        given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(blobPath);
+        given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
         given(diaryMediaRepository.save(any(DiaryMediaVO.class))).willReturn(savedMedia);
 
         // when
@@ -238,8 +243,9 @@ class DiaryServiceTest {
 
         // then
         assertThat(response.id()).isEqualTo(10L);
-        assertThat(response.mediaUrls()).containsExactly(gcsUrl);
+        assertThat(response.mediaUrls()).containsExactly(signedUrl);
         verify(gcsStorageService).upload(mockImage, "uploads/images");
+        verify(gcsStorageService).generateSignedUrl(blobPath);
         verify(diaryMediaRepository).save(any(DiaryMediaVO.class));
     }
 
