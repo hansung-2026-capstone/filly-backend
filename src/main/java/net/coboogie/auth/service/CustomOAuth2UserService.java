@@ -46,6 +46,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                                 .build()
                 ));
 
+        System.out.println("[OAuth2UserService] provider=" + provider + " oauthId=" + oauthId + " → userId=" + user.getId());
         return new CustomOAuth2User(oAuth2User, user.getId());
     }
 
