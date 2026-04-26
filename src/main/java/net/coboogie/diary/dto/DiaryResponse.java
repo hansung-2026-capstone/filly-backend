@@ -1,12 +1,12 @@
 package net.coboogie.diary.dto;
 
 import net.coboogie.vo.DiaryEntryVO;
-import net.coboogie.vo.DiaryMediaVO;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 /**
  * 일기 단건 응답 DTO.
@@ -37,14 +37,17 @@ public record DiaryResponse(
 ) {
     /**
      * {@link DiaryEntryVO} 엔티티를 응답 DTO로 변환한다.
-     * 연관된 {@link DiaryMediaVO} 목록에서 GCS URL을 추출하여 {@code mediaUrls}를 채운다.
+     * {@code urlTransformer}를 통해 각 미디어의 blob 경로를 클라이언트용 서명 URL로 변환한다.
      *
-     * @param diary 변환할 일기 엔티티
+     * @param diary          변환할 일기 엔티티
+     * @param urlTransformer blob 경로 → 서명 URL 변환 함수 (예: {@code gcsStorageService::generateSignedUrl})
      * @return 변환된 응답 DTO
      */
-    public static DiaryResponse from(DiaryEntryVO diary) {
+    public static DiaryResponse from(DiaryEntryVO diary, UnaryOperator<String> urlTransformer) {
         List<String> mediaUrls = diary.getMedia() == null ? Collections.emptyList()
-                : diary.getMedia().stream().map(DiaryMediaVO::getGcsUrl).toList();
+                : diary.getMedia().stream()
+                        .map(m -> urlTransformer.apply(m.getGcsUrl()))
+                        .toList();
 
         return new DiaryResponse(
                 diary.getId(),
