@@ -60,20 +60,40 @@ public class GcsStorageService {
      * GCS blob 경로에 대한 V4 서명 URL을 생성하여 반환한다.
      * 서명 URL은 1시간 후 만료된다.
      * 로컬 환경({@code storage.enabled=false})에서는 플레이스홀더 URL을 반환한다.
+     * <p>
+     * DB에 full URL({@code https://storage.googleapis.com/bucket/...})이 저장된 레거시 데이터도 처리한다.
+     * full URL이 입력되면 blob 경로만 추출하여 서명한다.
      *
      * @param blobName GCS blob 경로 (예: {@code "uploads/images/uuid_filename.png"})
+     *                 또는 레거시 full URL (예: {@code "https://storage.googleapis.com/bucket/..."})
      * @return 1시간 유효한 V4 서명 URL 문자열
      */
     public String generateSignedUrl(String blobName) {
         if (!storageEnabled) {
             return "https://storage.googleapis.com/" + bucketName + "/" + blobName;
         }
-        BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, blobName)).build();
+        String resolvedBlobName = stripBucketPrefix(blobName);
+        BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, resolvedBlobName)).build();
         URL signedUrl = storage.signUrl(
                 blobInfo,
                 1, TimeUnit.HOURS,
                 Storage.SignUrlOption.withV4Signature()
         );
         return signedUrl.toString();
+    }
+
+    /**
+     * full URL에서 bucket prefix를 제거하고 blob 경로만 반환한다.
+     * 이미 blob 경로이면 그대로 반환한다.
+     *
+     * @param blobName blob 경로 또는 full GCS URL
+     * @return blob 경로
+     */
+    private String stripBucketPrefix(String blobName) {
+        String prefix = "https://storage.googleapis.com/" + bucketName + "/";
+        if (blobName.startsWith(prefix)) {
+            return blobName.substring(prefix.length());
+        }
+        return blobName;
     }
 }
