@@ -1,5 +1,7 @@
 package net.coboogie.diary.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coboogie.blip.services.ImageAnalysisService;
@@ -9,8 +11,12 @@ import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiaryUpdateRequest;
+import net.coboogie.diary.repository.AiDiaryResultRepository;
+import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.diary.repository.DiaryMediaRepository;
+import net.coboogie.vo.AiDiaryResultVO;
+import net.coboogie.vo.AiEmotionAnalysisVO;
 import net.coboogie.vo.DiaryEntryVO;
 import net.coboogie.vo.DiaryMediaVO;
 import net.coboogie.vo.UserVO;
@@ -47,15 +53,20 @@ public class DiaryService {
     private final UserRepository userRepository;
     private final DiaryEntryRepository diaryEntryRepository;
     private final DiaryMediaRepository diaryMediaRepository;
+    private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
+    private final AiDiaryResultRepository aiDiaryResultRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * 일기를 DB에 저장하고 저장된 결과를 반환한다.
      * <p>
      * DEFAULT 모드: rawContent(텍스트)를 diary_entries에 저장한다.<br>
      * IMAGE/IMAGE_TEXT 모드: 이미지를 GCS에 업로드하고 diary_media에 저장한다.
-     * 작성 날짜, 이모지, 모드를 함께 저장하며, 별점은 초기에 설정되지 않는다.
+     * 작성 날짜, 이모지, 모드를 함께 저장하며, 별점은 초기에 설정되지 않는다.<br>
+     * {@code aiAnalysis}가 있으면 {@code ai_diary_analysis}에 감정 분석 결과를 저장한다.<br>
+     * {@code generatedText}가 있으면 {@code ai_diary_results}에 AI 생성 텍스트를 저장한다.
      *
-     * @param command userId, rawContent, emoji, writtenAt, mode, images를 담은 커맨드 객체
+     * @param command userId, rawContent, emoji, writtenAt, mode, images, aiAnalysis, generatedText를 담은 커맨드 객체
      * @return 저장된 일기의 응답 DTO (mediaUrls 포함)
      * @throws IllegalArgumentException 존재하지 않는 userId인 경우
      * @throws UncheckedIOException     GCS 업로드 실패 시
@@ -78,7 +89,44 @@ public class DiaryService {
         List<DiaryMediaVO> savedMedia = saveMediaFiles(saved, command.images());
         saved.setMedia(savedMedia);
 
+        if (command.aiAnalysis() != null) {
+            saveEmotionAnalysis(saved, command.aiAnalysis());
+        }
+        if (command.generatedText() != null && !command.generatedText().isBlank()) {
+            aiDiaryResultRepository.save(AiDiaryResultVO.builder()
+                    .diary(saved)
+                    .generatedText(command.generatedText())
+                    .build());
+        }
+
         return DiaryResponse.from(saved);
+    }
+
+    /**
+     * AI 감정 분석 결과를 {@code ai_diary_analysis} 테이블에 저장한다.
+     * JSON 직렬화 실패 시 경고 로그를 남기고 저장을 건너뛴다.
+     *
+     * @param diary    저장할 일기 엔티티
+     * @param analysis 저장할 감정 분석 결과
+     */
+    private void saveEmotionAnalysis(DiaryEntryVO diary, DiaryDraftResponse.AiAnalysis analysis) {
+        try {
+            AiEmotionAnalysisVO vo = AiEmotionAnalysisVO.builder()
+                    .diary(diary)
+                    .emotions(objectMapper.writeValueAsString(analysis.emotions()))
+                    .happinessIndex(analysis.happinessIndex())
+                    .activities(objectMapper.writeValueAsString(analysis.activities()))
+                    .places(objectMapper.writeValueAsString(analysis.places()))
+                    .people(objectMapper.writeValueAsString(analysis.people()))
+                    .iabCategories(objectMapper.writeValueAsString(analysis.iabCategories()))
+                    .patterns(objectMapper.writeValueAsString(analysis.patterns()))
+                    .moodSummary(analysis.moodSummary())
+                    .tone(analysis.tone())
+                    .build();
+            aiEmotionAnalysisRepository.save(vo);
+        } catch (JsonProcessingException e) {
+            log.warn("감정 분석 직렬화 실패: diaryId={}", diary.getId(), e);
+        }
     }
 
     /**

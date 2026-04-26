@@ -197,7 +197,9 @@ public class DiaryController {
 			@RequestPart(required = false) String emoji,
 			@RequestPart String writtenAt,
 			@RequestPart String mode,
-			@RequestPart(required = false) List<MultipartFile> images
+			@RequestPart(required = false) List<MultipartFile> images,
+			@RequestPart(required = false) DiaryDraftResponse.AiAnalysis aiAnalysis,
+			@RequestPart(required = false) String generatedText
 	) {
 		DiarySaveCommand command = DiarySaveCommand.builder()
 				.userId(userId)
@@ -206,6 +208,8 @@ public class DiaryController {
 				.writtenAt(LocalDate.parse(writtenAt))
 				.mode(DiaryEntryVO.Mode.valueOf(mode))
 				.images(images)
+				.aiAnalysis(aiAnalysis)
+				.generatedText(generatedText)
 				.build();
 
 		DiaryResponse response = diaryService.saveDiary(command);
