@@ -99,7 +99,7 @@ public class DiaryService {
                     .build());
         }
 
-        return DiaryResponse.from(saved);
+        return DiaryResponse.from(saved, gcsStorageService::generateSignedUrl);
     }
 
     /**
@@ -174,7 +174,7 @@ public class DiaryService {
     public DiaryResponse getDiary(Long diaryId, Long userId) {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
-        return DiaryResponse.from(diary);
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
     }
 
     /**
@@ -196,7 +196,7 @@ public class DiaryService {
         return diaryEntryRepository
                 .findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
                 .stream()
-                .map(DiaryResponse::from)
+                .map(d -> DiaryResponse.from(d, gcsStorageService::generateSignedUrl))
                 .toList();
     }
 
@@ -224,7 +224,7 @@ public class DiaryService {
         }
         diary.setUpdatedAt(LocalDateTime.now());
 
-        return DiaryResponse.from(diary);
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
     }
 
     /**
@@ -259,7 +259,10 @@ public class DiaryService {
     public DiaryDraftResponse createDraft(DiaryDraftCommand command) {
         validateInput(command);
 
-        List<String> mediaUrls = uploadImages(command.images());
+        List<String> blobPaths = uploadImages(command.images());
+        List<String> mediaUrls = blobPaths.stream()
+                .map(gcsStorageService::generateSignedUrl)
+                .toList();
         List<String> imageCaptions = extractCaptions(command.images());
 
         String voiceTranscription = transcribeVoice(command.voice());
@@ -383,7 +386,7 @@ public class DiaryService {
 
         return diaryEntryRepository.findAllByUser_Id(userId)
                 .stream()
-                .map(DiaryResponse::from)
+                .map(d -> DiaryResponse.from(d, gcsStorageService::generateSignedUrl))
                 .toList();
 
     }
