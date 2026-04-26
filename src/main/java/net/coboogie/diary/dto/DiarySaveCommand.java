@@ -13,12 +13,14 @@ import java.util.List;
  * 컨트롤러에서 {@code @AuthenticationPrincipal}로 추출한 {@code userId}와
  * Multipart 요청 필드를 합쳐 서비스에 전달하는 내부 DTO이다.
  *
- * @param userId     JWT 인증 사용자 ID (DB PK)
- * @param rawContent 텍스트 본문 (DEFAULT/IMAGE_TEXT 모드)
- * @param emoji      선택 이모지
- * @param writtenAt  일기 작성 날짜
- * @param mode       일기 모드
- * @param images     첨부 이미지 파일 목록 (IMAGE/IMAGE_TEXT 모드, 선택)
+ * @param userId        JWT 인증 사용자 ID (DB PK)
+ * @param rawContent    텍스트 본문 (DEFAULT/IMAGE_TEXT 모드)
+ * @param emoji         선택 이모지
+ * @param writtenAt     일기 작성 날짜
+ * @param mode          일기 모드
+ * @param images        첨부 이미지 파일 목록 (IMAGE/IMAGE_TEXT 모드, 선택)
+ * @param aiAnalysis    AI 초안 생성 시 반환된 감정 분석 결과 (선택)
+ * @param generatedText AI가 생성한 일기 텍스트 (선택)
  */
 @Builder
 public record DiarySaveCommand(
@@ -27,5 +29,7 @@ public record DiarySaveCommand(
         String emoji,
         LocalDate writtenAt,
         DiaryEntryVO.Mode mode,
-        List<MultipartFile> images
+        List<MultipartFile> images,
+        DiaryDraftResponse.AiAnalysis aiAnalysis,
+        String generatedText
 ) {}
