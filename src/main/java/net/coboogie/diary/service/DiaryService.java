@@ -228,6 +228,32 @@ public class DiaryService {
     }
 
     /**
+     * 일기의 별점을 업데이트한다.
+     * <p>
+     * 본인 소유의 일기만 수정할 수 있다.
+     *
+     * @param diaryId    수정할 일기 ID
+     * @param userId     JWT 인증 사용자 ID
+     * @param starRating 저장할 별점 (1~5)
+     * @return 수정된 일기 응답 DTO
+     * @throws NoSuchElementException   일기가 존재하지 않거나 본인 소유가 아닌 경우
+     * @throws IllegalArgumentException 별점이 1~5 범위를 벗어난 경우
+     */
+    @Transactional
+    public DiaryResponse updateStarRating(Long diaryId, Long userId, Integer starRating) {
+        if (starRating == null || starRating < 1 || starRating > 5) {
+            throw new IllegalArgumentException("별점은 1~5 사이여야 합니다.");
+        }
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+
+        diary.setStarRating(starRating);
+        diary.setUpdatedAt(LocalDateTime.now());
+
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
+    }
+
+    /**
      * 일기를 삭제한다.
      * <p>
      * 본인 소유의 일기만 삭제할 수 있다. 존재하지 않거나 다른 사용자 소유이면 예외가 발생한다.
