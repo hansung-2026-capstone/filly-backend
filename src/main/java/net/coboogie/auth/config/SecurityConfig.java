@@ -15,6 +15,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -79,11 +80,17 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                         .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/oauth2/**", "/login/**",            // OAuth2, 로그인
-                                "/v1/auth/refresh",                   // 토큰 갱신 (인증 불필요)
-                                "/swagger-ui/**", "/swagger-ui.html", // Swagger UI
-                                "/v3/api-docs/**",
-                                "/*.html", "/css/**", "/js/**"        // 정적 HTML 페이지
+                                // Spring Security 필터 경로(/oauth2/**, /login/**)는 MVC 핸들러가 없으므로
+                                // MvcRequestMatcher 대신 PathPatternRequestMatcher를 명시적으로 사용한다.
+                                PathPatternRequestMatcher.pathPattern("/oauth2/**"),
+                                PathPatternRequestMatcher.pathPattern("/login/**"),
+                                PathPatternRequestMatcher.pathPattern("/v1/auth/refresh"),
+                                PathPatternRequestMatcher.pathPattern("/swagger-ui/**"),
+                                PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
+                                PathPatternRequestMatcher.pathPattern("/v3/api-docs/**"),
+                                PathPatternRequestMatcher.pathPattern("/*.html"),
+                                PathPatternRequestMatcher.pathPattern("/css/**"),
+                                PathPatternRequestMatcher.pathPattern("/js/**")
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

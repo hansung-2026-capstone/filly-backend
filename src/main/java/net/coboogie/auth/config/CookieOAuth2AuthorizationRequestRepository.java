@@ -25,7 +25,7 @@ public class CookieOAuth2AuthorizationRequestRepository
 
 //    private static final String COOKIE_NAME = "oauth2_auth_request";
     private static final String COOKIE_NAME = "__session";
-    private static final int COOKIE_MAX_AGE_SECONDS = 180; // 3분
+    private static final int COOKIE_MAX_AGE_SECONDS = 600; // 10분
 
     /**
      * 쿠키에서 OAuth2 인증 요청을 로드한다.
@@ -83,7 +83,10 @@ public class CookieOAuth2AuthorizationRequestRepository
                 COOKIE_MAX_AGE_SECONDS
         );
 
-        // 기존의 response.addCookie(cookie)는 지우고, 헤더만 깔끔하게 추가합니다.
+        // Firebase CDN이 OAuth2 인가 리다이렉트(302)를 캐싱하면 Set-Cookie가 브라우저에
+        // 전달되지 않아 콜백에서 쿠키가 없는 상태가 된다. no-store로 캐싱을 방지한다.
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
         response.addHeader("Set-Cookie", cookieValue);
     }
 
