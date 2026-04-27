@@ -11,6 +11,7 @@ import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryUpdateRequest;
+import net.coboogie.diary.dto.StarRatingRequest;
 import net.coboogie.diary.service.DiaryService;
 import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.http.MediaType;
@@ -243,6 +244,36 @@ public class DiaryController {
 			@RequestBody DiaryUpdateRequest request
 	) {
 		DiaryResponse response = diaryService.updateDiary(id, userId, request);
+		return ResponseEntity.ok(ApiResponse.ok(response));
+	}
+
+	/**
+	 * 일기 별점 업데이트 API.
+	 * <p>
+	 * 본인 소유의 일기만 수정 가능하다.
+	 *
+	 * @param userId  JWT에서 추출한 인증 사용자 ID
+	 * @param id      수정할 일기 ID
+	 * @param request 저장할 별점 (1~5)
+	 * @return 수정된 일기 정보
+	 */
+	@PatchMapping("/{id}/star")
+	@Operation(
+			summary = "일기 별점 업데이트",
+			description = "일기의 별점(1~5)을 업데이트합니다. 본인 소유의 일기만 수정 가능합니다."
+	)
+	@ApiResponses({
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 별점 값"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+	})
+	public ResponseEntity<ApiResponse<DiaryResponse>> updateStarRating(
+			@AuthenticationPrincipal Long userId,
+			@PathVariable Long id,
+			@RequestBody StarRatingRequest request
+	) {
+		DiaryResponse response = diaryService.updateStarRating(id, userId, request.starRating());
 		return ResponseEntity.ok(ApiResponse.ok(response));
 	}
 
