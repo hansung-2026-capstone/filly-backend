@@ -2,6 +2,7 @@ package net.coboogie.persona.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import net.coboogie.avatar.service.AvatarService;
 import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.persona.dto.PersonaResponse;
@@ -14,12 +15,12 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -45,20 +46,24 @@ public class PersonaService {
     private final UserRepository userRepository;
     private final ChatClient personaChatClient;
     private final ObjectMapper objectMapper;
+    private final AvatarService avatarService;
 
+    /** PersonaService 생성자. */
     public PersonaService(
             PersonaSnapshotRepository personaSnapshotRepository,
             DiaryEntryRepository diaryEntryRepository,
             AiEmotionAnalysisRepository aiEmotionAnalysisRepository,
             UserRepository userRepository,
             @Qualifier("personaChatClient") ChatClient personaChatClient,
-            @Qualifier("aiObjectMapper") ObjectMapper objectMapper) {
+            @Qualifier("aiObjectMapper") ObjectMapper objectMapper,
+            AvatarService avatarService) {
         this.personaSnapshotRepository = personaSnapshotRepository;
         this.diaryEntryRepository = diaryEntryRepository;
         this.aiEmotionAnalysisRepository = aiEmotionAnalysisRepository;
         this.userRepository = userRepository;
         this.personaChatClient = personaChatClient;
         this.objectMapper = objectMapper;
+        this.avatarService = avatarService;
     }
 
     /**
@@ -141,8 +146,17 @@ public class PersonaService {
                 .summary(parsed.get("summary"))
                 .build();
 
-        personaSnapshotRepository.save(snapshot);
+        PersonaSnapshotVO saved = personaSnapshotRepository.save(snapshot);
         log.info("페르소나 생성 완료: userId={}, title={}", userId, parsed.get("title"));
+
+        // 트랜잭션 커밋 후 아바타 비동기 생성 — 커밋 전에 실행되면 페르소나 조회 실패 가능
+        Long snapshotId = saved.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                avatarService.generateAvatarAsync(userId, snapshotId);
+            }
+        });
     }
 
     /**
