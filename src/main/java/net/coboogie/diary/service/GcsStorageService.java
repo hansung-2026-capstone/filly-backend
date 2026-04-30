@@ -83,6 +83,30 @@ public class GcsStorageService {
     }
 
     /**
+     * 바이트 배열을 GCS에 업로드하고 버킷 내 blob 경로를 반환한다.
+     * 로컬 환경({@code storage.enabled=false})에서는 업로드를 생략하고 경로만 반환한다.
+     *
+     * @param bytes       업로드할 바이트 배열
+     * @param folder      GCS 내 저장 폴더 (예: {@code "avatars"})
+     * @param filename    저장 파일명 (예: {@code "avatar.png"})
+     * @param contentType 파일 MIME 타입 (예: {@code "image/png"})
+     * @return GCS blob 경로 (예: {@code "avatars/uuid_avatar.png"})
+     */
+    public String uploadBytes(byte[] bytes, String folder, String filename, String contentType) {
+        String blobName = folder + "/" + UUID.randomUUID() + "_" + filename;
+
+        if (!storageEnabled) {
+            return blobName;
+        }
+
+        BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobName)
+                .setContentType(contentType)
+                .build();
+        storage.create(blobInfo, bytes);
+        return blobName;
+    }
+
+    /**
      * full URL에서 bucket prefix를 제거하고 blob 경로만 반환한다.
      * 이미 blob 경로이면 그대로 반환한다.
      *

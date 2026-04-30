@@ -27,6 +27,9 @@ public class AiConfig {
     @Value("classpath:prompts/persona-system.txt")
     private Resource personaSystemPrompt;
 
+    @Value("classpath:prompts/avatar-system.txt")
+    private Resource avatarSystemPrompt;
+
     /** 일기 초안 생성용 ChatClient. */
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) throws IOException {
@@ -39,6 +42,14 @@ public class AiConfig {
     @Qualifier("personaChatClient")
     public ChatClient personaChatClient(ChatClient.Builder builder) throws IOException {
         String systemPrompt = personaSystemPrompt.getContentAsString(StandardCharsets.UTF_8);
+        return builder.defaultSystem(systemPrompt).build();
+    }
+
+    /** 아바타 이미지 프롬프트 생성 전용 ChatClient. */
+    @Bean
+    @Qualifier("avatarChatClient")
+    public ChatClient avatarChatClient(ChatClient.Builder builder) throws IOException {
+        String systemPrompt = avatarSystemPrompt.getContentAsString(StandardCharsets.UTF_8);
         return builder.defaultSystem(systemPrompt).build();
     }
 }
