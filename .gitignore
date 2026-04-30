@@ -55,4 +55,8 @@ src/mysql_data/
 .DS_Store
 
 ### Claude Code personal context ###
-.claude/CLAUDE.md
+.claude
+
+# 설정 파일 제외
+application.properties
+application-local.properties
