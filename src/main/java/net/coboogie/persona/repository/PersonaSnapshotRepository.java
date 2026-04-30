@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,4 +21,12 @@ public interface PersonaSnapshotRepository extends JpaRepository<PersonaSnapshot
      */
     @Query("SELECT p FROM PersonaSnapshotVO p WHERE p.user.id = :userId ORDER BY p.generatedAt DESC LIMIT 1")
     Optional<PersonaSnapshotVO> findLatestByUserId(@Param("userId") Long userId);
+
+    /**
+     * 특정 사용자의 전체 페르소나 이력을 최신순으로 반환한다.
+     *
+     * @param userId 조회할 사용자 ID
+     * @return 페르소나 이력 목록 (최신순)
+     */
+    List<PersonaSnapshotVO> findAllByUser_IdOrderByGeneratedAtDesc(Long userId);
 }

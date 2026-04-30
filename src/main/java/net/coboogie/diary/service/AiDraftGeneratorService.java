@@ -2,10 +2,10 @@ package net.coboogie.diary.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coboogie.diary.dto.AiDraftResult;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,11 +22,16 @@ import java.util.Locale;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AiDraftGeneratorService {
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
+
+    public AiDraftGeneratorService(ChatClient chatClient,
+                                   @Qualifier("aiObjectMapper") ObjectMapper objectMapper) {
+        this.chatClient = chatClient;
+        this.objectMapper = objectMapper;
+    }
 
     private static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy년 M월 d일 EEEE", Locale.KOREAN);

@@ -1,6 +1,7 @@
 package net.coboogie.common.config;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,15 +22,23 @@ import java.nio.charset.StandardCharsets;
 public class AiConfig {
 
     @Value("classpath:prompts/diary-system.txt")
-    private Resource systemPromptResource;
+    private Resource diarySystemPrompt;
 
-    /**
-     * Spring AI가 자동 구성한 Builder로 ChatClient 빈을 생성한다.
-     * defaultSystem으로 일기 대필 페르소나를 등록하여 모든 호출에 재사용한다.
-     */
+    @Value("classpath:prompts/persona-system.txt")
+    private Resource personaSystemPrompt;
+
+    /** 일기 초안 생성용 ChatClient. */
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) throws IOException {
-        String systemPrompt = systemPromptResource.getContentAsString(StandardCharsets.UTF_8);
+        String systemPrompt = diarySystemPrompt.getContentAsString(StandardCharsets.UTF_8);
+        return builder.defaultSystem(systemPrompt).build();
+    }
+
+    /** 페르소나 생성 전용 ChatClient. */
+    @Bean
+    @Qualifier("personaChatClient")
+    public ChatClient personaChatClient(ChatClient.Builder builder) throws IOException {
+        String systemPrompt = personaSystemPrompt.getContentAsString(StandardCharsets.UTF_8);
         return builder.defaultSystem(systemPrompt).build();
     }
 }

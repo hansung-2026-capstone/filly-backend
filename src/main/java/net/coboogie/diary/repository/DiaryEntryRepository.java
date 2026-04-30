@@ -38,4 +38,14 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntryVO, Long> 
      * @return 해당 사용자의 전체 일기 목록
      */
     List<DiaryEntryVO> findAllByUser_Id(Long userId);
+
+    /**
+     * 특정 사용자의 지정 기간 내 일기 수를 반환한다.
+     *
+     * @param userId    조회할 사용자 ID
+     * @param startDate 기간 시작일 (inclusive)
+     * @param endDate   기간 종료일 (inclusive)
+     * @return 해당 기간의 일기 수
+     */
+    int countByUser_IdAndWrittenAtBetween(Long userId, LocalDate startDate, LocalDate endDate);
 }
