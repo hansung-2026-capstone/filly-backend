@@ -25,9 +25,9 @@ public class JacksonConfig {
     @Bean
     @Qualifier("aiObjectMapper")
     public ObjectMapper aiObjectMapper() {
-        return ObjectMapper.builder()
-                .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
-                .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true)
-                .build();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        mapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
+        return mapper;
     }
 }
