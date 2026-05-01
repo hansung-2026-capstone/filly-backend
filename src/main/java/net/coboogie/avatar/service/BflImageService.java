@@ -7,7 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
+// import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -19,7 +19,7 @@ import java.util.Map;
  * BFL API는 비동기 방식으로 동작하며, 생성에 보통 10~30초가 소요된다.
  */
 @Slf4j
-@Service
+// @Service
 public class BflImageService {
 
     private static final String BFL_BASE_URL = "https://api.us1.bfl.ai/v1";
