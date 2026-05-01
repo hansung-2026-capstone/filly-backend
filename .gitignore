@@ -54,8 +54,8 @@ src/mysql_data/
 
 .DS_Store
 
-### Claude Code personal context ###
-.claude
+### Agent personal context ###
+.agent
 
 # 설정 파일 제외
 application.properties
