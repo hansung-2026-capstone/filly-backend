@@ -33,7 +33,7 @@ public class AvatarService {
     private final AvatarHistoryRepository avatarHistoryRepository;
     private final PersonaSnapshotRepository personaSnapshotRepository;
     private final UserRepository userRepository;
-    private final BflImageService bflImageService;
+    // private final BflImageService bflImageService;
     private final GcsStorageService gcsStorageService;
     private final ChatClient avatarChatClient;
     private final ObjectMapper objectMapper;
@@ -43,14 +43,14 @@ public class AvatarService {
             AvatarHistoryRepository avatarHistoryRepository,
             PersonaSnapshotRepository personaSnapshotRepository,
             UserRepository userRepository,
-            BflImageService bflImageService,
+            // BflImageService bflImageService,
             GcsStorageService gcsStorageService,
             @Qualifier("avatarChatClient") ChatClient avatarChatClient,
             @Qualifier("aiObjectMapper") ObjectMapper objectMapper) {
         this.avatarHistoryRepository = avatarHistoryRepository;
         this.personaSnapshotRepository = personaSnapshotRepository;
         this.userRepository = userRepository;
-        this.bflImageService = bflImageService;
+        // this.bflImageService = bflImageService;
         this.gcsStorageService = gcsStorageService;
         this.avatarChatClient = avatarChatClient;
         this.objectMapper = objectMapper;
@@ -152,7 +152,9 @@ public class AvatarService {
                 userId, params.animal(), params.backgroundColor(), params.pose());
 
         String fluxPrompt = buildFluxPrompt(params);
-        return bflImageService.generateImage(fluxPrompt);
+        // return bflImageService.generateImage(fluxPrompt);
+        log.warn("BFL 서비스가 비활성화되어 있습니다. 빈 이미지를 반환합니다.");
+        return new byte[0];
     }
 
     @SuppressWarnings("unchecked")
