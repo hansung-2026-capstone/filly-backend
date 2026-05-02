@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
@@ -23,7 +24,7 @@ import java.util.NoSuchElementException;
  * 아바타 이미지 생성 서비스.
  * <p>
  * 사용자의 최신 페르소나를 기반으로 Gemini가 동물 종류·배경색·포즈를 결정하고,
- * BFL FLUX API로 아바타 이미지를 생성한 뒤 GCS에 업로드한다.
+ * Vertex AI Imagen API로 아바타 이미지를 생성한 뒤 GCS에 업로드한다.
  * 생성이 완료되면 {@code UserVO.currentAvatarUrl}을 업데이트하고 이력을 저장한다.
  */
 @Slf4j
@@ -33,7 +34,7 @@ public class AvatarService {
     private final AvatarHistoryRepository avatarHistoryRepository;
     private final PersonaSnapshotRepository personaSnapshotRepository;
     private final UserRepository userRepository;
-    // private final BflImageService bflImageService;
+    private final VertexAiImagenService vertexAiImagenService;
     private final GcsStorageService gcsStorageService;
     private final ChatClient avatarChatClient;
     private final ObjectMapper objectMapper;
@@ -43,14 +44,14 @@ public class AvatarService {
             AvatarHistoryRepository avatarHistoryRepository,
             PersonaSnapshotRepository personaSnapshotRepository,
             UserRepository userRepository,
-            // BflImageService bflImageService,
+            VertexAiImagenService vertexAiImagenService,
             GcsStorageService gcsStorageService,
             @Qualifier("avatarChatClient") ChatClient avatarChatClient,
             @Qualifier("aiObjectMapper") ObjectMapper objectMapper) {
         this.avatarHistoryRepository = avatarHistoryRepository;
         this.personaSnapshotRepository = personaSnapshotRepository;
         this.userRepository = userRepository;
-        // this.bflImageService = bflImageService;
+        this.vertexAiImagenService = vertexAiImagenService;
         this.gcsStorageService = gcsStorageService;
         this.avatarChatClient = avatarChatClient;
         this.objectMapper = objectMapper;
@@ -60,7 +61,7 @@ public class AvatarService {
      * 사용자의 최신 페르소나를 기반으로 아바타 이미지를 생성한다.
      * <p>
      * 1. 최신 페르소나 조회 → 2. Gemini로 동물·배경색·포즈 결정
-     * → 3. BFL FLUX로 이미지 생성 → 4. GCS 업로드
+     * → 3. Vertex AI Imagen으로 이미지 생성 → 4. GCS 업로드
      * → 5. AvatarHistoryVO 저장 및 사용자 아바타 URL 갱신
      *
      * @param userId JWT 인증 사용자 ID
@@ -151,10 +152,12 @@ public class AvatarService {
         log.info("아바타 파라미터 결정: userId={}, animal={}, bgColor={}, pose={}",
                 userId, params.animal(), params.backgroundColor(), params.pose());
 
-        String fluxPrompt = buildFluxPrompt(params);
-        // return bflImageService.generateImage(fluxPrompt);
-        log.warn("BFL 서비스가 비활성화되어 있습니다. 빈 이미지를 반환합니다.");
-        return new byte[0];
+        String imagenPrompt = buildFluxPrompt(params);
+        try {
+            return vertexAiImagenService.generateImage(imagenPrompt);
+        } catch (IOException e) {
+            throw new IllegalStateException("Vertex AI Imagen 이미지 생성 실패", e);
+        }
     }
 
     @SuppressWarnings("unchecked")
