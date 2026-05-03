@@ -15,6 +15,7 @@ import net.coboogie.diary.repository.AiDiaryResultRepository;
 import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.diary.repository.DiaryMediaRepository;
+import net.coboogie.stat.repository.MonthlyStatRepository;
 import net.coboogie.vo.AiDiaryResultVO;
 import net.coboogie.vo.AiEmotionAnalysisVO;
 import net.coboogie.vo.DiaryEntryVO;
@@ -55,6 +56,7 @@ public class DiaryService {
     private final DiaryMediaRepository diaryMediaRepository;
     private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     private final AiDiaryResultRepository aiDiaryResultRepository;
+    private final MonthlyStatRepository monthlyStatRepository;
     private final ObjectMapper objectMapper;
 
     /**
@@ -98,6 +100,8 @@ public class DiaryService {
                     .generatedText(command.generatedText())
                     .build());
         }
+
+        invalidateMonthlyStat(command.userId(), saved.getWrittenAt());
 
         return DiaryResponse.from(saved, gcsStorageService::generateSignedUrl);
     }
@@ -224,6 +228,8 @@ public class DiaryService {
         }
         diary.setUpdatedAt(LocalDateTime.now());
 
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
+
         return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
     }
 
@@ -266,7 +272,19 @@ public class DiaryService {
     public void deleteDiary(Long diaryId, Long userId) {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
         diaryEntryRepository.delete(diary);
+    }
+
+    /**
+     * 일기 변경이 발생한 월의 통계 캐시를 삭제한다.
+     * 다음 통계 조회 시 최신 원본 데이터 기준으로 다시 계산된다.
+     */
+    private void invalidateMonthlyStat(Long userId, LocalDate writtenAt) {
+        if (userId == null || writtenAt == null) {
+            return;
+        }
+        monthlyStatRepository.deleteByUserIdAndRecordMonth(userId, YearMonth.from(writtenAt).toString());
     }
 
     /**
