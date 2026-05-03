@@ -12,6 +12,7 @@ import net.coboogie.diary.repository.AiDiaryResultRepository;
 import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.diary.repository.DiaryMediaRepository;
+import net.coboogie.stat.repository.MonthlyStatRepository;
 import net.coboogie.vo.AiDiaryResultVO;
 import net.coboogie.vo.AiEmotionAnalysisVO;
 import net.coboogie.vo.DiaryEntryVO;
@@ -50,6 +51,7 @@ class DiaryServiceTest {
     @Mock private DiaryMediaRepository diaryMediaRepository;
     @Mock private AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     @Mock private AiDiaryResultRepository aiDiaryResultRepository;
+    @Mock private MonthlyStatRepository monthlyStatRepository;
     @Mock private ObjectMapper objectMapper;
 
     @InjectMocks
@@ -205,6 +207,7 @@ class DiaryServiceTest {
         assertThat(response.writtenAt()).isEqualTo(WRITTEN_AT);
         assertThat(response.mode()).isEqualTo(DiaryEntryVO.Mode.DEFAULT);
         verify(diaryEntryRepository).save(any(DiaryEntryVO.class));
+        verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
     }
 
     @Test
@@ -459,6 +462,7 @@ class DiaryServiceTest {
         assertThat(response.rawContent()).isEqualTo("수정된 내용");
         assertThat(response.emoji()).isEqualTo("😊");
         assertThat(response.updatedAt()).isNotNull();
+        verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
     }
 
     @Test
@@ -524,6 +528,7 @@ class DiaryServiceTest {
 
         // then
         verify(diaryEntryRepository).delete(diary);
+        verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
     }
 
     @Test
@@ -541,5 +546,6 @@ class DiaryServiceTest {
                 .hasMessageContaining("일기를 찾을 수 없습니다");
 
         verify(diaryEntryRepository, never()).delete(any());
+        verifyNoInteractions(monthlyStatRepository);
     }
 }
