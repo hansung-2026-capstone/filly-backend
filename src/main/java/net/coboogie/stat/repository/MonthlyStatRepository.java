@@ -2,6 +2,7 @@ package net.coboogie.stat.repository;
 
 import net.coboogie.vo.MonthlyStatVO;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,4 +22,14 @@ public interface MonthlyStatRepository extends JpaRepository<MonthlyStatVO, Long
      */
     @Query("SELECT m FROM MonthlyStatVO m WHERE m.user.id = :userId AND m.recordMonth = :recordMonth")
     Optional<MonthlyStatVO> findByUserIdAndRecordMonth(@Param("userId") Long userId, @Param("recordMonth") String recordMonth);
+
+    /**
+     * 사용자 ID와 연월에 해당하는 월별 통계 캐시를 삭제한다.
+     *
+     * @param userId      삭제할 사용자 ID
+     * @param recordMonth {@code "YYYY-MM"} 형식의 연월 문자열
+     */
+    @Modifying
+    @Query("DELETE FROM MonthlyStatVO m WHERE m.user.id = :userId AND m.recordMonth = :recordMonth")
+    void deleteByUserIdAndRecordMonth(@Param("userId") Long userId, @Param("recordMonth") String recordMonth);
 }
