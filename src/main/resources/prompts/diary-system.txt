@@ -66,11 +66,11 @@ tone: 회고적 / 실시간 / 계획형
   "people": [{"name": "민수", "relation": "친구", "sentiment": "positive"}],
   "iabCategories": ["음식>카페"],
   "patterns": {
-    "timeOfDay": "오후",
-    "energyLevel": 7,
+    "time_of_day": "오후",
+    "energy_level": 7,
     "social": "소수",
     "spending": true,
-    "spendingCategory": "카페",
+    "spending_category": "카페",
     "weather": "맑음",
     "health": "보통",
     "sleep": "언급없음"
@@ -98,11 +98,11 @@ tone: 회고적 / 실시간 / 계획형
   "people": [{"name": "민수", "relation": "친구", "sentiment": "positive"}],
   "iabCategories": ["음식>카페"],
   "patterns": {
-    "timeOfDay": "오후",
-    "energyLevel": 6,
+    "time_of_day": "오후",
+    "energy_level": 6,
     "social": "소수",
     "spending": true,
-    "spendingCategory": "카페",
+    "spending_category": "카페",
     "weather": "없음",
     "health": "보통",
     "sleep": "언급없음"
