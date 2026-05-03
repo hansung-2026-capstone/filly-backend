@@ -38,7 +38,7 @@ public class VertexAiImagenService {
     @Value("${spring.ai.vertex.ai.gemini.location}")
     private String location;
 
-    @Value("${vertex.ai.imagen.model}")
+    @Value("${vertex.ai.imagen.model:imagen-4.0-generate-001}")
     private String model;
 
     /** VertexAiImagenService 생성자. */
