@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import net.coboogie.diary.dto.AiDraftResult;
+import net.coboogie.diary.exception.AiDraftGenerationException;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -93,7 +94,7 @@ public class AiDraftGeneratorService {
             return objectMapper.readValue(json, AiDraftResult.class);
         } catch (JsonProcessingException e) {
             log.warn("Gemini 응답 JSON 파싱 실패. raw={}", raw, e);
-            throw new IllegalStateException("AI 응답을 파싱할 수 없습니다.", e);
+            throw new AiDraftGenerationException("AI 응답을 파싱할 수 없습니다.", e);
         }
     }
 
