@@ -9,6 +9,7 @@ import net.coboogie.auth.service.CustomOAuth2UserService;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -60,7 +61,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("https://filly-diary.com"));
+        config.setAllowedOriginPatterns(List.of(
+                "https://filly-diary.com",
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
@@ -79,11 +84,13 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                         .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 // Spring Security 필터 경로(/oauth2/**, /login/**)는 MVC 핸들러가 없으므로
                                 // MvcRequestMatcher 대신 PathPatternRequestMatcher를 명시적으로 사용한다.
                                 PathPatternRequestMatcher.pathPattern("/oauth2/**"),
                                 PathPatternRequestMatcher.pathPattern("/login/**"),
+                                PathPatternRequestMatcher.pathPattern("/error"),
                                 PathPatternRequestMatcher.pathPattern("/v1/auth/refresh"),
                                 PathPatternRequestMatcher.pathPattern("/swagger-ui/**"),
                                 PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),

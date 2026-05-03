@@ -1,6 +1,7 @@
 package net.coboogie.common.exception;
 
 import net.coboogie.common.response.ApiResponse;
+import net.coboogie.diary.exception.AiDraftGenerationException;
 import net.coboogie.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +52,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    /**
+     * AI 초안 생성 실패는 인증 문제가 아니므로 502로 반환한다.
+     *
+     * @param ex 발생한 예외
+     * @return 502 Bad Gateway
+     */
+    @ExceptionHandler(AiDraftGenerationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiDraftGeneration(AiDraftGenerationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(ApiResponse.error(ex.getMessage()));
     }
 }
