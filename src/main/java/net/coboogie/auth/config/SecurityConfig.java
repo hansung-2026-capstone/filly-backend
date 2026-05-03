@@ -90,6 +90,7 @@ public class SecurityConfig {
                                 // MvcRequestMatcher 대신 PathPatternRequestMatcher를 명시적으로 사용한다.
                                 PathPatternRequestMatcher.pathPattern("/oauth2/**"),
                                 PathPatternRequestMatcher.pathPattern("/login/**"),
+                                PathPatternRequestMatcher.pathPattern("/error"),
                                 PathPatternRequestMatcher.pathPattern("/v1/auth/refresh"),
                                 PathPatternRequestMatcher.pathPattern("/swagger-ui/**"),
                                 PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
