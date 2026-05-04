@@ -22,10 +22,14 @@ public record UserResponse(
         LocalDateTime createdAt
 ) {
     public static UserResponse from(UserVO user) {
+        return from(user, user.getCurrentAvatarUrl());
+    }
+
+    public static UserResponse from(UserVO user, String currentAvatarUrl) {
         return new UserResponse(
                 user.getId(),
                 user.getNickname(),
-                user.getCurrentAvatarUrl(),
+                currentAvatarUrl,
                 user.getCurrentBgUrl(),
                 user.getBackgroundTheme(),
                 user.getCreatedAt()
