@@ -1,9 +1,9 @@
 -- ENUM 값을 Java enum 이름(대문자)과 일치하도록 수정
 -- ddl-auto=validate 환경에서 런타임 오류 방지
 
--- diary_entries.mode: 'image+text'/'AI+image' → 'IMAGE_TEXT'/'AI_IMAGE', 소문자 → 대문자
+-- diary_entries.mode 제거
 ALTER TABLE diary_entries
-    MODIFY COLUMN mode ENUM('DEFAULT', 'IMAGE', 'IMAGE_TEXT', 'AI_IMAGE', 'AI') NOT NULL;
+    DROP COLUMN mode;
 
 -- diary_media.type: 소문자 → 대문자
 ALTER TABLE diary_media

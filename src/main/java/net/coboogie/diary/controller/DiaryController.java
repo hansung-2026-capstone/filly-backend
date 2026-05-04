@@ -51,7 +51,6 @@ public class DiaryController {
 	 * @param images    이미지 파일 목록 (선택)
 	 * @param voice     음성 파일 (선택)
 	 * @param writtenAt 작성 날짜 (ISO 형식: yyyy-MM-dd)
-	 * @param mode      일기 모드 (DEFAULT / IMAGE / IMAGE_TEXT / AI_IMAGE / AI)
 	 */
 	@PostMapping(value = "/draft", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@Operation(
@@ -69,8 +68,7 @@ public class DiaryController {
 			@RequestPart(required = false) String content,
 			@RequestPart(required = false) List<MultipartFile> images,
 			@RequestPart(required = false) MultipartFile voice,
-			@RequestPart String writtenAt,
-			@RequestPart String mode
+			@RequestPart String writtenAt
 	) {
 		DiaryDraftCommand command = DiaryDraftCommand.builder()
 				.userId(userId)
@@ -78,7 +76,6 @@ public class DiaryController {
 				.images(images)
 				.voice(voice)
 				.writtenAt(LocalDate.parse(writtenAt))
-				.mode(DiaryEntryVO.Mode.valueOf(mode))
 				.build();
 
 		DiaryDraftResponse response = diaryService.createDraft(command);
@@ -179,7 +176,6 @@ public class DiaryController {
 	 * @param rawContent 텍스트 본문 (DEFAULT/IMAGE_TEXT 모드, 선택)
 	 * @param emoji      이모지 (선택)
 	 * @param writtenAt  작성 날짜 (ISO 형식: yyyy-MM-dd)
-	 * @param mode       일기 모드 (DEFAULT / IMAGE / IMAGE_TEXT / AI_IMAGE / AI)
 	 * @param images     첨부 이미지 파일 목록 (IMAGE/IMAGE_TEXT 모드, 선택)
 	 * @return 저장된 일기 정보 (mediaUrls 포함)
 	 */
@@ -197,7 +193,6 @@ public class DiaryController {
 			@RequestPart(required = false) String rawContent,
 			@RequestPart(required = false) String emoji,
 			@RequestPart String writtenAt,
-			@RequestPart String mode,
 			@RequestPart(required = false) List<MultipartFile> images,
 			@RequestPart(required = false) DiaryDraftResponse.AiAnalysis aiAnalysis,
 			@RequestPart(required = false) String generatedText
@@ -207,7 +202,6 @@ public class DiaryController {
 				.rawContent(rawContent)
 				.emoji(emoji)
 				.writtenAt(LocalDate.parse(writtenAt))
-				.mode(DiaryEntryVO.Mode.valueOf(mode))
 				.images(images)
 				.aiAnalysis(aiAnalysis)
 				.generatedText(generatedText)
