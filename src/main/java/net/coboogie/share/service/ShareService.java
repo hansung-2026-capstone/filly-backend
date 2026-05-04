@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.coboogie.diary.service.GcsStorageService;
 import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.persona.repository.PersonaSnapshotRepository;
@@ -44,6 +45,7 @@ public class ShareService {
     private final DiaryEntryRepository diaryEntryRepository;
     private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     private final PersonaSnapshotRepository personaSnapshotRepository;
+    private final GcsStorageService gcsStorageService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -62,8 +64,16 @@ public class ShareService {
 
         List<AiEmotionAnalysisVO> analyses = aiEmotionAnalysisRepository.findByDiary_User_Id(userId);
         List<String> keywords = extractKeywords(analyses);
+        String avatarUrl = toSignedUrl(user.getCurrentAvatarUrl());
 
-        return new IdCardResponse(user.getCurrentAvatarUrl(), user.getNickname(), keywords);
+        return new IdCardResponse(avatarUrl, user.getNickname(), keywords);
+    }
+
+    private String toSignedUrl(String blobName) {
+        if (blobName == null || blobName.isBlank()) {
+            return blobName;
+        }
+        return gcsStorageService.generateSignedUrl(blobName);
     }
 
     /**
