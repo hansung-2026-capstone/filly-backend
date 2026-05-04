@@ -67,7 +67,6 @@ class DiaryServiceTest {
                 .userId(1L)
                 .textContent("오늘은 날씨가 좋았다")
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT)
                 .build();
 
         AiDraftResult aiResult = new AiDraftResult(
@@ -104,7 +103,6 @@ class DiaryServiceTest {
                 .userId(1L)
                 .images(List.of(mockImage))
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.IMAGE)
                 .build();
 
         String blobPath = "uploads/images/uuid_photo.jpg";
@@ -138,7 +136,6 @@ class DiaryServiceTest {
         DiaryDraftCommand command = DiaryDraftCommand.builder()
                 .userId(1L)
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT)
                 .build();
 
         // when & then
@@ -157,7 +154,6 @@ class DiaryServiceTest {
                 .userId(1L)
                 .textContent("   ")
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT)
                 .build();
 
         // when & then
@@ -170,8 +166,8 @@ class DiaryServiceTest {
     // ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("DEFAULT 모드 일기 저장 시 diary_entries에 저장 후 DiaryResponse 반환")
-    void givenDefaultModeCommand_whenSaveDiary_thenSaveAndReturnResponse() {
+    @DisplayName("일기 저장 시 diary_entries에 저장 후 DiaryResponse 반환")
+    void givenTextCommand_whenSaveDiary_thenSaveAndReturnResponse() {
         // given
         Long userId = 1L;
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
@@ -181,7 +177,6 @@ class DiaryServiceTest {
                 .rawContent("오늘 날씨가 맑았다.")
                 .emoji("☀️")
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT)
                 .build();
 
         DiaryEntryVO savedDiary = DiaryEntryVO.builder()
@@ -190,7 +185,6 @@ class DiaryServiceTest {
                 .rawContent("오늘 날씨가 맑았다.")
                 .emoji("☀️")
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -205,14 +199,13 @@ class DiaryServiceTest {
         assertThat(response.rawContent()).isEqualTo("오늘 날씨가 맑았다.");
         assertThat(response.emoji()).isEqualTo("☀️");
         assertThat(response.writtenAt()).isEqualTo(WRITTEN_AT);
-        assertThat(response.mode()).isEqualTo(DiaryEntryVO.Mode.DEFAULT);
         verify(diaryEntryRepository).save(any(DiaryEntryVO.class));
         verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
     }
 
     @Test
-    @DisplayName("IMAGE 모드 저장 시 GCS 업로드 후 mediaUrls 포함하여 DiaryResponse 반환")
-    void givenImageModeCommand_whenSaveDiary_thenUploadToGcsAndReturnResponseWithMediaUrls() throws IOException {
+    @DisplayName("이미지 저장 시 GCS 업로드 후 mediaUrls 포함하여 DiaryResponse 반환")
+    void givenImageCommand_whenSaveDiary_thenUploadToGcsAndReturnResponseWithMediaUrls() throws IOException {
         // given
         Long userId = 1L;
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
@@ -222,7 +215,6 @@ class DiaryServiceTest {
         DiarySaveCommand command = DiarySaveCommand.builder()
                 .userId(userId)
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.IMAGE)
                 .images(List.of(mockImage))
                 .build();
 
@@ -230,7 +222,7 @@ class DiaryServiceTest {
         String signedUrl = "https://storage.googleapis.com/filly-media-bucket/" + blobPath + "?X-Goog-Signature=abc";
         DiaryEntryVO savedDiary = DiaryEntryVO.builder()
                 .id(10L).user(mockUser).writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.IMAGE).createdAt(LocalDateTime.now()).build();
+                .createdAt(LocalDateTime.now()).build();
         DiaryMediaVO savedMedia = DiaryMediaVO.builder()
                 .id(1L).diary(savedDiary).type(DiaryMediaVO.Type.IMAGE)
                 .gcsUrl(blobPath).fileSize(1024).build();
@@ -260,7 +252,6 @@ class DiaryServiceTest {
                 .userId(999L)
                 .rawContent("테스트")
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT)
                 .build();
 
         given(userRepository.findById(999L)).willReturn(Optional.empty());
@@ -281,7 +272,7 @@ class DiaryServiceTest {
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
         DiaryEntryVO savedDiary = DiaryEntryVO.builder()
                 .id(10L).user(mockUser).rawContent("내용")
-                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now()).build();
 
         DiaryDraftResponse.AiAnalysis aiAnalysis = new DiaryDraftResponse.AiAnalysis(
@@ -298,7 +289,7 @@ class DiaryServiceTest {
 
         DiarySaveCommand command = DiarySaveCommand.builder()
                 .userId(userId).rawContent("내용").writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT).aiAnalysis(aiAnalysis).build();
+                .aiAnalysis(aiAnalysis).build();
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
         given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
@@ -320,12 +311,12 @@ class DiaryServiceTest {
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
         DiaryEntryVO savedDiary = DiaryEntryVO.builder()
                 .id(10L).user(mockUser).rawContent("내용")
-                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now()).build();
 
         DiarySaveCommand command = DiarySaveCommand.builder()
                 .userId(userId).rawContent("내용").writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT).generatedText("AI가 작성한 일기").build();
+                .generatedText("AI가 작성한 일기").build();
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
         given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
@@ -355,7 +346,6 @@ class DiaryServiceTest {
                 .rawContent("오늘은 즐거운 하루였다.")
                 .emoji("😊")
                 .writtenAt(WRITTEN_AT)
-                .mode(DiaryEntryVO.Mode.DEFAULT)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -369,7 +359,6 @@ class DiaryServiceTest {
         assertThat(response.rawContent()).isEqualTo("오늘은 즐거운 하루였다.");
         assertThat(response.emoji()).isEqualTo("😊");
         assertThat(response.writtenAt()).isEqualTo(WRITTEN_AT);
-        assertThat(response.mode()).isEqualTo(DiaryEntryVO.Mode.DEFAULT);
     }
 
     @Test
@@ -400,10 +389,10 @@ class DiaryServiceTest {
 
         DiaryEntryVO diary1 = DiaryEntryVO.builder()
                 .id(1L).user(mockUser).rawContent("첫째 날").writtenAt(LocalDate.of(2026, 4, 1))
-                .mode(DiaryEntryVO.Mode.DEFAULT).createdAt(LocalDateTime.now()).build();
+                .createdAt(LocalDateTime.now()).build();
         DiaryEntryVO diary2 = DiaryEntryVO.builder()
                 .id(2L).user(mockUser).rawContent("셋째 날").writtenAt(LocalDate.of(2026, 4, 3))
-                .mode(DiaryEntryVO.Mode.DEFAULT).createdAt(LocalDateTime.now()).build();
+                .createdAt(LocalDateTime.now()).build();
 
         given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
@@ -449,7 +438,7 @@ class DiaryServiceTest {
         DiaryEntryVO diary = DiaryEntryVO.builder()
                 .id(diaryId).user(mockUser)
                 .rawContent("기존 내용").emoji("😐")
-                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now()).build();
 
         DiaryUpdateRequest request = new DiaryUpdateRequest("수정된 내용", "😊");
@@ -475,7 +464,7 @@ class DiaryServiceTest {
         DiaryEntryVO diary = DiaryEntryVO.builder()
                 .id(diaryId).user(mockUser)
                 .rawContent("기존 내용").emoji("😐")
-                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now()).build();
 
         DiaryUpdateRequest request = new DiaryUpdateRequest("수정된 내용", null);
@@ -518,7 +507,7 @@ class DiaryServiceTest {
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
         DiaryEntryVO diary = DiaryEntryVO.builder()
                 .id(diaryId).user(mockUser).rawContent("내용")
-                .writtenAt(WRITTEN_AT).mode(DiaryEntryVO.Mode.DEFAULT)
+                .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now()).build();
 
         given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));

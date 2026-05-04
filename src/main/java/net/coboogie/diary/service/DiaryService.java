@@ -62,13 +62,12 @@ public class DiaryService {
     /**
      * 일기를 DB에 저장하고 저장된 결과를 반환한다.
      * <p>
-     * DEFAULT 모드: rawContent(텍스트)를 diary_entries에 저장한다.<br>
-     * IMAGE/IMAGE_TEXT 모드: 이미지를 GCS에 업로드하고 diary_media에 저장한다.
-     * 작성 날짜, 이모지, 모드를 함께 저장하며, 별점은 초기에 설정되지 않는다.<br>
+     * rawContent(텍스트)를 diary_entries에 저장하고, 이미지가 있으면 GCS에 업로드하여 diary_media에 저장한다.
+     * 작성 날짜와 이모지를 함께 저장하며, 별점은 초기에 설정되지 않는다.<br>
      * {@code aiAnalysis}가 있으면 {@code ai_diary_analysis}에 감정 분석 결과를 저장한다.<br>
      * {@code generatedText}가 있으면 {@code ai_diary_results}에 AI 생성 텍스트를 저장한다.
      *
-     * @param command userId, rawContent, emoji, writtenAt, mode, images, aiAnalysis, generatedText를 담은 커맨드 객체
+     * @param command userId, rawContent, emoji, writtenAt, images, aiAnalysis, generatedText를 담은 커맨드 객체
      * @return 저장된 일기의 응답 DTO (mediaUrls 포함)
      * @throws IllegalArgumentException 존재하지 않는 userId인 경우
      * @throws UncheckedIOException     GCS 업로드 실패 시
@@ -83,7 +82,6 @@ public class DiaryService {
                 .rawContent(command.rawContent())
                 .emoji(command.emoji())
                 .writtenAt(command.writtenAt())
-                .mode(command.mode())
                 .build();
 
         DiaryEntryVO saved = diaryEntryRepository.save(diary);

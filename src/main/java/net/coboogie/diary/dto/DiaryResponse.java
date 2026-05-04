@@ -19,7 +19,6 @@ import java.util.function.UnaryOperator;
  * @param emoji       이모지
  * @param starRating  별점 (1~5, 미설정 시 null)
  * @param writtenAt   작성 날짜
- * @param mode        일기 모드
  * @param createdAt   최초 생성 시각
  * @param updatedAt   마지막 수정 시각 (없으면 null)
  * @param mediaUrls   첨부 미디어 GCS URL 목록 (없으면 빈 리스트)
@@ -30,7 +29,6 @@ public record DiaryResponse(
         String emoji,
         Integer starRating,
         LocalDate writtenAt,
-        DiaryEntryVO.Mode mode,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         List<String> mediaUrls
@@ -55,7 +53,6 @@ public record DiaryResponse(
                 diary.getEmoji(),
                 diary.getStarRating(),
                 diary.getWrittenAt(),
-                diary.getMode(),
                 diary.getCreatedAt(),
                 diary.getUpdatedAt(),
                 mediaUrls

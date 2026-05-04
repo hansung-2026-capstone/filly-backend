@@ -8,7 +8,6 @@ import net.coboogie.diary.dto.DiaryResponse;
 import net.coboogie.diary.dto.DiarySaveCommand;
 import net.coboogie.diary.dto.DiaryUpdateRequest;
 import net.coboogie.diary.service.DiaryService;
-import net.coboogie.vo.DiaryEntryVO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -76,7 +75,7 @@ class DiaryControllerTest {
 
         // when
         ResponseEntity<ApiResponse<DiaryDraftResponse>> response = diaryController.createDraft(
-                USER_ID, "오늘 한강에서 치킨을 먹었다", null, null, "2026-04-11", "AI"
+                USER_ID, "오늘 한강에서 치킨을 먹었다", null, null, "2026-04-11"
         );
 
         // then
@@ -165,15 +164,15 @@ class DiaryControllerTest {
     // ─────────────────────────────────────────
 
     @Test
-    @DisplayName("DEFAULT 모드로 일기 저장 시 200과 저장된 일기를 반환한다")
-    void givenDefaultMode_whenSaveDiary_thenReturn200() {
+    @DisplayName("일기 저장 시 200과 저장된 일기를 반환한다")
+    void givenValidRequest_whenSaveDiary_thenReturn200() {
         // given
         DiaryResponse saved = makeDiaryResponse(DIARY_ID, "저장된 일기 본문");
         given(diaryService.saveDiary(any(DiarySaveCommand.class))).willReturn(saved);
 
         // when
         ResponseEntity<ApiResponse<DiaryResponse>> response = diaryController.saveDiary(
-                USER_ID, "저장된 일기 본문", null, "2026-04-11", "DEFAULT", null, null, null
+                USER_ID, "저장된 일기 본문", null, "2026-04-11", null, null, null
         );
 
         // then
@@ -259,8 +258,7 @@ class DiaryControllerTest {
     private DiaryResponse makeDiaryResponse(Long id, String rawContent) {
         return new DiaryResponse(
                 id, rawContent, null, null,
-                WRITTEN_AT, DiaryEntryVO.Mode.DEFAULT,
-                NOW, null, List.of()
+                WRITTEN_AT, NOW, null, List.of()
         );
     }
 }

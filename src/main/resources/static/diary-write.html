@@ -89,13 +89,6 @@
   <label>작성 날짜</label>
   <input type="date" id="writtenAt" />
 
-  <label>모드</label>
-  <select id="mode">
-    <option value="DEFAULT">DEFAULT (텍스트)</option>
-    <option value="IMAGE">IMAGE (사진만)</option>
-    <option value="IMAGE_TEXT">IMAGE_TEXT (텍스트 + 사진)</option>
-  </select>
-
   <label>오늘의 기분 이모지</label>
   <div class="emoji-row" id="emojiRow">
     <button class="emoji-btn" data-emoji="😊">😊</button>
@@ -145,7 +138,6 @@
   async function submitDiary() {
     const accessToken = localStorage.getItem('accessToken');
     const writtenAt   = document.getElementById('writtenAt').value;
-    const mode        = document.getElementById('mode').value;
     const rawContent  = document.getElementById('rawContent').value.trim();
     const emoji       = document.getElementById('emoji').value.trim() || null;
 
@@ -163,7 +155,7 @@
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + accessToken
         },
-        body: JSON.stringify({ rawContent, emoji, writtenAt, mode })
+        body: JSON.stringify({ rawContent, emoji, writtenAt })
       });
 
       const data = await res.json();
@@ -173,7 +165,6 @@
           `✅ 저장 성공!\n` +
           `ID: ${data.data.id}\n` +
           `날짜: ${data.data.writtenAt}\n` +
-          `모드: ${data.data.mode}\n` +
           `내용: ${(data.data.rawContent || '').slice(0, 60)}…`
         );
         document.getElementById('rawContent').value = '';

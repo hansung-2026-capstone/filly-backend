@@ -16,10 +16,6 @@ import java.util.List;
 @Builder
 public class DiaryEntryVO {
 
-    public enum Mode {
-        DEFAULT, IMAGE, IMAGE_TEXT, AI_IMAGE, AI
-    }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -27,10 +23,6 @@ public class DiaryEntryVO {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserVO user;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "mode", nullable = false)
-    private Mode mode;
 
     @Column(name = "raw_content", columnDefinition = "TEXT")
     private String rawContent;
