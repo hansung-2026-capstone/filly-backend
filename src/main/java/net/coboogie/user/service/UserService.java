@@ -1,13 +1,13 @@
 package net.coboogie.user.service;
 
 import lombok.RequiredArgsConstructor;
+import net.coboogie.diary.service.GcsStorageService;
 import net.coboogie.user.dto.UserResponse;
+import net.coboogie.user.exception.UserNotFoundException;
 import net.coboogie.user.repository.UserRepository;
 import net.coboogie.vo.UserVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import net.coboogie.user.exception.UserNotFoundException;
 
 /**
  * 사용자 도메인 비즈니스 로직 서비스.
@@ -17,6 +17,7 @@ import net.coboogie.user.exception.UserNotFoundException;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final GcsStorageService gcsStorageService;
 
     /**
      * 사용자 정보를 조회하여 반환한다.
@@ -29,7 +30,15 @@ public class UserService {
     public UserResponse getMe(Long userId) {
         UserVO user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        return UserResponse.from(user);
+        String currentAvatarUrl = toSignedUrl(user.getCurrentAvatarUrl());
+        return UserResponse.from(user, currentAvatarUrl);
+    }
+
+    private String toSignedUrl(String blobName) {
+        if (blobName == null || blobName.isBlank()) {
+            return blobName;
+        }
+        return gcsStorageService.generateSignedUrl(blobName);
     }
 
     /**
