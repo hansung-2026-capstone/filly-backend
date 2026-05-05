@@ -300,6 +300,11 @@ public class DiaryService {
      */
     public DiaryDraftResponse createDraft(DiaryDraftCommand command) {
         validateInput(command);
+        int imageCount = command.images() == null ? 0 : command.images().size();
+        boolean hasText = command.textContent() != null && !command.textContent().isBlank();
+        boolean hasVoice = command.voice() != null && !command.voice().isEmpty();
+        log.info("AI draft start userId={} writtenAt={} hasText={} imageCount={} hasVoice={}",
+                command.userId(), command.writtenAt(), hasText, imageCount, hasVoice);
 
         List<String> blobPaths = uploadImages(command.images());
         List<String> mediaUrls = blobPaths.stream()
@@ -315,6 +320,9 @@ public class DiaryService {
                 voiceTranscription,
                 command.writtenAt()
         );
+        log.info("AI draft complete userId={} mediaCount={} captionCount={} hasVoiceTranscription={}",
+                command.userId(), mediaUrls.size(), imageCaptions.size(),
+                voiceTranscription != null && !voiceTranscription.isBlank());
 
         return new DiaryDraftResponse(
                 aiResult.generatedText(),
@@ -388,6 +396,8 @@ public class DiaryService {
                 }
             } catch (Exception e) {
                 // BLIP 서버 미실행 등 분석 실패 시 해당 이미지 건너뜀
+                log.warn("BLIP caption extraction skipped filename={} reason={}",
+                        image.getOriginalFilename(), e.getMessage(), e);
             }
         }
         return captions;
