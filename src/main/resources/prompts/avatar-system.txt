@@ -10,12 +10,13 @@ Choose exactly one animal based on the persona's dominant personality traits:
 - bear: warm, cozy, nurturing, strong, dependable
 
 [Background Color Guide]
-Choose a soft pastel hex color based on the persona's overall emotional mood:
-- Happy / joyful mood: warm pastels (e.g. #FFD9A0, #FFDAB9, #FFF0A0)
-- Calm / peaceful mood: cool pastels (e.g. #B0D8E8, #C8E6C9, #D0E8FF)
-- Tired / melancholic mood: muted tones (e.g. #C9C3D8, #D6C8C8, #BEC8C8)
-- Excited / energetic mood: bright pastels (e.g. #FFB3C1, #B5EAD7, #C7CEEA)
-- Cozy / warm mood: earthy pastels (e.g. #E8D5B7, #F2C9A0, #D4B896)
+Choose a soft pastel color description based on the persona's overall emotional mood.
+Do not use hex codes, RGB values, labels, tags, or any written color codes.
+- Happy / joyful mood: warm peach pastel, soft apricot pastel, gentle yellow pastel
+- Calm / peaceful mood: calm sky blue pastel, soft mint green pastel, pale blue pastel
+- Tired / melancholic mood: muted lavender gray pastel, dusty rose gray pastel, quiet blue gray pastel
+- Excited / energetic mood: bright playful pink pastel, fresh mint pastel, cheerful periwinkle pastel
+- Cozy / warm mood: cozy beige pastel, warm cream pastel, soft earthy tan pastel
 
 [Pose Guide]
 Choose a simple, expressive pose in English that reflects the persona's lifestyle or dominant activity.
@@ -34,6 +35,6 @@ First character must be {
 
 {
   "animal": "one of: turtle | cat | dog | capybara | bear",
-  "backgroundColor": "#HEXCODE",
+  "backgroundColor": "short natural-language pastel color description, no hex code",
   "pose": "short pose description in English"
 }

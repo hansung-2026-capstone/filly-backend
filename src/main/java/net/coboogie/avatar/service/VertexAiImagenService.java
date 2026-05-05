@@ -7,6 +7,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
@@ -57,6 +58,7 @@ public class VertexAiImagenService {
     public byte[] generateImage(String prompt) throws IOException {
         String accessToken = getAccessToken();
         String url = String.format(ENDPOINT_TEMPLATE, location, projectId, location, model);
+        long startedAt = System.currentTimeMillis();
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -69,12 +71,23 @@ public class VertexAiImagenService {
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        log.info("Vertex AI Imagen 요청: model={}, location={}", model, location);
+        log.info("Vertex AI Imagen request start model={} location={} promptLength={}",
+                model, location, prompt.length());
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> response = restTemplate.postForObject(url, request, Map.class);
+        Map<String, Object> response;
+        try {
+            response = restTemplate.postForObject(url, request, Map.class);
+        } catch (RestClientResponseException e) {
+            log.error("Vertex AI Imagen request failed status={} body={}",
+                    e.getStatusCode(), abbreviate(e.getResponseBodyAsString(), 500), e);
+            throw e;
+        }
 
-        return parseImageBytes(response);
+        byte[] imageBytes = parseImageBytes(response);
+        log.info("Vertex AI Imagen request complete model={} location={} elapsedMs={} bytes={}",
+                model, location, System.currentTimeMillis() - startedAt, imageBytes.length);
+        return imageBytes;
     }
 
     private String getAccessToken() throws IOException {
@@ -101,7 +114,13 @@ public class VertexAiImagenService {
             throw new IllegalStateException("Vertex AI Imagen API 응답에 이미지 데이터가 없습니다.");
         }
 
-        log.info("Vertex AI Imagen 이미지 생성 완료");
         return Base64.getDecoder().decode(base64Image);
+    }
+
+    private String abbreviate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength) + "...";
     }
 }

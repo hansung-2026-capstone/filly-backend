@@ -113,15 +113,6 @@
             <label>작성 날짜</label>
             <input type="text" id="d-date">
           </div>
-          <div class="form-row">
-            <label>모드</label>
-            <select id="d-mode">
-              <option value="AI">AI</option>
-              <option value="DEFAULT">DEFAULT</option>
-              <option value="IMAGE">IMAGE</option>
-              <option value="VOICE">VOICE</option>
-            </select>
-          </div>
         </div>
         <button class="btn btn-primary" id="btn-draft" onclick="createDraft()">AI 초안 생성</button>
         <div id="result-draft"></div>
@@ -157,15 +148,6 @@
         <div class="row3">
           <div class="form-row"><label>이모지</label><input type="text" id="s-emoji" placeholder="😊"></div>
           <div class="form-row"><label>작성 날짜</label><input type="text" id="s-date"></div>
-          <div class="form-row">
-            <label>모드</label>
-            <select id="s-mode">
-              <option value="DEFAULT">DEFAULT</option>
-              <option value="AI">AI</option>
-              <option value="IMAGE">IMAGE</option>
-              <option value="VOICE">VOICE</option>
-            </select>
-          </div>
         </div>
         <button class="btn btn-primary" onclick="saveDiary()">저장</button>
         <div id="result-save"></div>
@@ -267,13 +249,11 @@ async function createDraft() {
   const form = new FormData();
   const text  = document.getElementById('d-text').value.trim();
   const date  = document.getElementById('d-date').value;
-  const mode  = document.getElementById('d-mode').value;
   const imgs  = document.getElementById('d-images').files;
   const voice = document.getElementById('d-voice').files[0];
 
   if (text)  form.append('content', text);
   if (date)  form.append('writtenAt', date);
-  if (mode)  form.append('mode', mode);
   for (let f of imgs) form.append('images', f);
   if (voice) form.append('voice', voice);
 
@@ -283,7 +263,7 @@ async function createDraft() {
     showResult('result-draft', json, !res.ok);
 
     if (res.ok && json.data) {
-      lastDraft = { data: json.data, date, mode };
+      lastDraft = { data: json.data, date };
       const d = json.data;
       document.getElementById('draft-preview').innerHTML =
         `<strong>${d.aiAnalysis?.emotionType || ''}</strong> 기분 ${d.aiAnalysis?.moodIndex || '-'}/10<br><br>${d.generatedText || ''}`;
@@ -304,8 +284,7 @@ async function saveDraftDirectly() {
   const body = {
     rawContent: d.generatedText,
     emoji:      emojiMap[d.aiAnalysis?.emotionType] || '📝',
-    writtenAt:  lastDraft.date,
-    mode:       lastDraft.mode || 'AI'
+    writtenAt:  lastDraft.date
   };
   const res  = await fetch('/api/v1/diaries', { method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const json = await res.json();
@@ -330,7 +309,7 @@ async function loadDiaries() {
       json.data.forEach(d => {
         const item = document.createElement('div');
         item.className = 'diary-item';
-        item.innerHTML = `<div class="di-date">${d.writtenAt} · ID: ${d.id} · ${d.mode}</div>
+        item.innerHTML = `<div class="di-date">${d.writtenAt} · ID: ${d.id}</div>
           <div class="di-content">${d.emoji || ''} ${(d.rawContent || '').slice(0, 80)}${(d.rawContent||'').length > 80 ? '…' : ''}</div>`;
         item.onclick = () => {
           ['g-id','u-id','del-id'].forEach(id => document.getElementById(id).value = d.id);
@@ -349,8 +328,7 @@ async function saveDiary() {
   const body = {
     rawContent: document.getElementById('s-content').value,
     emoji:      document.getElementById('s-emoji').value || null,
-    writtenAt:  document.getElementById('s-date').value,
-    mode:       document.getElementById('s-mode').value
+    writtenAt:  document.getElementById('s-date').value
   };
   try {
     const res  = await fetch('/api/v1/diaries', { method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

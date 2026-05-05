@@ -1,7 +1,6 @@
 package net.coboogie.diary.dto;
 
 import lombok.Builder;
-import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
@@ -24,8 +23,6 @@ public record DiaryDraftCommand(
         /** 첨부 음성 파일 (선택) */
         MultipartFile voice,
         /** 일기 작성 날짜 */
-        LocalDate writtenAt,
-        /** 일기 작성 모드 (DEFAULT / IMAGE / IMAGE_TEXT / AI_IMAGE / AI) */
-        DiaryEntryVO.Mode mode
+        LocalDate writtenAt
 ) {
 }

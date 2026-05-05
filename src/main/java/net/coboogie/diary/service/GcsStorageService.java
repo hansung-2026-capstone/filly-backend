@@ -4,6 +4,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +21,7 @@ import java.util.concurrent.TimeUnit;
  * 서명 URL은 1시간 유효하며, 서비스 계정 또는 ADC(Application Default Credentials)로 서명된다.
  * {@code spring.cloud.gcp.storage.enabled=false}인 경우(로컬 개발) 실제 GCS 호출을 건너뛰고 플레이스홀더를 반환한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GcsStorageService {
@@ -46,13 +48,17 @@ public class GcsStorageService {
         String blobName = folder + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
 
         if (!storageEnabled) {
+            log.info("GCS upload skipped storageEnabled=false blobName={}", blobName);
             return blobName;
         }
 
+        log.info("GCS upload start bucket={} blobName={} contentType={} size={}",
+                bucketName, blobName, file.getContentType(), file.getSize());
         BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobName)
                 .setContentType(file.getContentType())
                 .build();
         storage.create(blobInfo, file.getBytes());
+        log.info("GCS upload complete bucket={} blobName={}", bucketName, blobName);
         return blobName;
     }
 
@@ -70,15 +76,18 @@ public class GcsStorageService {
      */
     public String generateSignedUrl(String blobName) {
         if (!storageEnabled) {
+            log.info("GCS signed URL skipped storageEnabled=false blobName={}", blobName);
             return "https://storage.googleapis.com/" + bucketName + "/" + blobName;
         }
         String resolvedBlobName = stripBucketPrefix(blobName);
+        log.info("GCS signed URL start bucket={} blobName={}", bucketName, resolvedBlobName);
         BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, resolvedBlobName)).build();
         URL signedUrl = storage.signUrl(
                 blobInfo,
                 1, TimeUnit.HOURS,
                 Storage.SignUrlOption.withV4Signature()
         );
+        log.info("GCS signed URL complete bucket={} blobName={}", bucketName, resolvedBlobName);
         return signedUrl.toString();
     }
 
@@ -96,13 +105,17 @@ public class GcsStorageService {
         String blobName = folder + "/" + UUID.randomUUID() + "_" + filename;
 
         if (!storageEnabled) {
+            log.info("GCS byte upload skipped storageEnabled=false blobName={}", blobName);
             return blobName;
         }
 
+        log.info("GCS byte upload start bucket={} blobName={} contentType={} size={}",
+                bucketName, blobName, contentType, bytes.length);
         BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobName)
                 .setContentType(contentType)
                 .build();
         storage.create(blobInfo, bytes);
+        log.info("GCS byte upload complete bucket={} blobName={}", bucketName, blobName);
         return blobName;
     }
 
