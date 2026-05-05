@@ -63,6 +63,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
                 "https://filly-diary.com",
+                "https://www.filly-diary.com",
                 "http://localhost:*",
                 "http://127.0.0.1:*"
         ));
