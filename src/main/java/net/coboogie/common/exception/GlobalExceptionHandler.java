@@ -1,5 +1,6 @@
 package net.coboogie.common.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import net.coboogie.common.response.ApiResponse;
 import net.coboogie.diary.exception.AiDraftGenerationException;
 import net.coboogie.user.exception.UserNotFoundException;
@@ -15,6 +16,7 @@ import java.util.NoSuchElementException;
  * <p>
  * 컨트롤러에서 잡히지 않은 예외를 일관된 {@link ApiResponse} 형식으로 변환한다.
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -27,6 +29,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleUserNotFound(UserNotFoundException ex) {
+        log.warn("user not found: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(ex.getMessage()));
     }
@@ -39,6 +42,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoSuchElement(NoSuchElementException ex) {
+        log.warn("resource not found: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(ex.getMessage()));
     }
@@ -51,6 +55,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("bad request: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));
     }
@@ -63,7 +68,21 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(AiDraftGenerationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAiDraftGeneration(AiDraftGenerationException ex) {
+        log.error("ai draft generation failed: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    /**
+     * 예상하지 못한 서버 오류를 500으로 반환한다.
+     *
+     * @param ex 발생한 예외
+     * @return 500 Internal Server Error
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception ex) {
+        log.error("unhandled exception", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("서버 오류가 발생했습니다."));
     }
 }

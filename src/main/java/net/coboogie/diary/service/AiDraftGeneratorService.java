@@ -49,13 +49,24 @@ public class AiDraftGeneratorService {
     public AiDraftResult generate(String textContent, List<String> imageCaptions,
                                   String voiceTranscription, LocalDate writtenAt) {
         String userMessage = buildUserMessage(textContent, imageCaptions, voiceTranscription, writtenAt);
+        long startedAt = System.currentTimeMillis();
+        log.info("Gemini diary draft request start writtenAt={} textLength={} captionCount={} hasVoice={}",
+                writtenAt,
+                textContent == null ? 0 : textContent.length(),
+                imageCaptions.size(),
+                voiceTranscription != null && !voiceTranscription.isBlank());
 
         String raw = chatClient.prompt()
                 .user(userMessage)
                 .call()
                 .content();
 
-        return parseWithFallback(raw);
+        AiDraftResult result = parseWithFallback(raw);
+        log.info("Gemini diary draft request complete elapsedMs={} generatedTextLength={} happinessIndex={}",
+                System.currentTimeMillis() - startedAt,
+                result.generatedText() == null ? 0 : result.generatedText().length(),
+                result.happinessIndex());
+        return result;
     }
 
     /**
@@ -93,7 +104,7 @@ public class AiDraftGeneratorService {
         try {
             return objectMapper.readValue(json, AiDraftResult.class);
         } catch (JsonProcessingException e) {
-            log.warn("Gemini 응답 JSON 파싱 실패. raw={}", raw, e);
+            log.warn("Gemini 응답 JSON 파싱 실패. raw={}", abbreviate(raw, 1000), e);
             throw new AiDraftGenerationException("AI 응답을 파싱할 수 없습니다.", e);
         }
     }
@@ -114,5 +125,12 @@ public class AiDraftGeneratorService {
 
     private String orNone(String value) {
         return (value == null || value.isBlank()) ? "(없음)" : value;
+    }
+
+    private String abbreviate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength) + "...";
     }
 }
