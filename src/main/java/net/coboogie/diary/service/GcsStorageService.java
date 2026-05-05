@@ -1,5 +1,6 @@
 package net.coboogie.diary.service;
 
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
@@ -11,6 +12,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Base64;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -89,6 +92,35 @@ public class GcsStorageService {
         );
         log.info("GCS signed URL complete bucket={} blobName={}", bucketName, resolvedBlobName);
         return signedUrl.toString();
+    }
+
+    /**
+     * GCS 객체를 data URL로 변환한다.
+     * <p>
+     * 공유 이미지 생성처럼 브라우저 캔버스에 이미지를 그리는 흐름에서는 외부 GCS URL의 CORS
+     * 헤더에 의존하면 캔버스가 오염될 수 있으므로, 응답 본문에 직접 포함 가능한 data URL을 사용한다.
+     *
+     * @param blobName GCS blob 경로 또는 레거시 full URL
+     * @return {@code data:<content-type>;base64,...} 형식의 이미지 URL
+     */
+    public String generateDataUrl(String blobName) {
+        if (!storageEnabled) {
+            log.info("GCS data URL skipped storageEnabled=false blobName={}", blobName);
+            return generateSignedUrl(blobName);
+        }
+        String resolvedBlobName = stripBucketPrefix(blobName);
+        log.info("GCS data URL start bucket={} blobName={}", bucketName, resolvedBlobName);
+        Blob blob = storage.get(BlobId.of(bucketName, resolvedBlobName));
+        if (blob == null || !blob.exists()) {
+            throw new NoSuchElementException("GCS 객체를 찾을 수 없습니다: " + resolvedBlobName);
+        }
+        String contentType = blob.getContentType();
+        if (contentType == null || contentType.isBlank()) {
+            contentType = "application/octet-stream";
+        }
+        String encoded = Base64.getEncoder().encodeToString(blob.getContent());
+        log.info("GCS data URL complete bucket={} blobName={}", bucketName, resolvedBlobName);
+        return "data:" + contentType + ";base64," + encoded;
     }
 
     /**
