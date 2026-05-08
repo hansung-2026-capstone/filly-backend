@@ -3,6 +3,7 @@ package net.coboogie.auth.handler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.coboogie.auth.dto.CustomOAuth2User;
 import net.coboogie.auth.util.JwtTokenProvider;
 import org.springframework.security.core.Authentication;
@@ -20,6 +21,7 @@ import java.io.IOException;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
@@ -50,7 +52,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
         response.setHeader("Pragma", "no-cache");
-        System.out.println("[OAuth2SuccessHandler] userId=" + userId + " 로그인 성공");
+        log.info("OAuth2 login success userId={}", userId);
         response.sendRedirect(FRONTEND_REDIRECT_URL + "?accessToken=" + accessToken + "&refreshToken=" + refreshToken);
     }
 }

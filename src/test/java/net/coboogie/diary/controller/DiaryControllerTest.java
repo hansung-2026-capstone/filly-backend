@@ -1,5 +1,6 @@
 package net.coboogie.diary.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import net.coboogie.common.response.ApiResponse;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
@@ -39,6 +40,9 @@ class DiaryControllerTest {
 
     @Mock
     private DiaryService diaryService;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private DiaryController diaryController;

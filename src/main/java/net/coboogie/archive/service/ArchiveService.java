@@ -114,6 +114,7 @@ public class ArchiveService {
     @Transactional
     public void deleteFolder(Long userId, Long folderId) {
         ArchiveFolderVO folder = findFolder(folderId, userId);
+        archiveDiaryRepository.deleteByFolder_Id(folderId);
         archiveFolderRepository.delete(folder);
         log.info("아카이브 폴더 삭제: userId={}, folderId={}", userId, folderId);
     }

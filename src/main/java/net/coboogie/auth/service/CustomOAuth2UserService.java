@@ -1,5 +1,6 @@
 package net.coboogie.auth.service;
 
+import lombok.extern.slf4j.Slf4j;
 import net.coboogie.auth.dto.CustomOAuth2User;
 import net.coboogie.vo.UserVO;
 import net.coboogie.user.repository.UserRepository;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private final OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate;
@@ -46,7 +48,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
                                 .build()
                 ));
 
-        System.out.println("[OAuth2UserService] provider=" + provider + " oauthId=" + oauthId + " → userId=" + user.getId());
+        log.info("OAuth2 user loaded provider={} userId={}", provider, user.getId());
         return new CustomOAuth2User(oAuth2User, user.getId());
     }
 
