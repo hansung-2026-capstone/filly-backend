@@ -22,23 +22,17 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "recommendations")
+@Table(name = "recommendation_draws")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RecommendationVO {
+public class RecommendationDrawVO {
 
     public enum Status {
         ACTIVE,
-        REVEALED,
-        REPLACED
-    }
-
-    public enum GenerationType {
-        INITIAL,
-        SHUFFLE
+        COMPLETED
     }
 
     @Id
@@ -46,47 +40,23 @@ public class RecommendationVO {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "draw_id")
-    private RecommendationDrawVO draw;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserVO user;
 
-    @Column(name = "round_no")
-    private Integer roundNo;
-
-    @Column(name = "iab_main_category", nullable = false, length = 50)
-    private String iabMainCategory;
-
-    @Column(name = "iab_sub_category", length = 50)
-    private String iabSubCategory;
-
-    @Column(name = "content_type", nullable = false, length = 20)
-    private String contentType;
-
-    @Column(name = "content_ref", columnDefinition = "JSON")
-    private String contentRef;
-
-    @Column(name = "reason", columnDefinition = "TEXT")
-    private String reason;
-
-    @Column(name = "card_index")
-    private Integer cardIndex;
-
-    @Column(name = "revealed", nullable = false)
+    @Column(name = "current_round", nullable = false)
     @Builder.Default
-    private Boolean revealed = false;
+    private Integer currentRound = 1;
+
+    @Column(name = "source_period", nullable = false, length = 50)
+    private String sourcePeriod;
+
+    @Column(name = "profile_snapshot", nullable = false, columnDefinition = "JSON")
+    private String profileSnapshot;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
     private Status status = Status.ACTIVE;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "generation_type", nullable = false, length = 20)
-    @Builder.Default
-    private GenerationType generationType = GenerationType.INITIAL;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
