@@ -3,6 +3,8 @@ package net.coboogie.common.exception;
 import lombok.extern.slf4j.Slf4j;
 import net.coboogie.common.response.ApiResponse;
 import net.coboogie.diary.exception.AiDraftGenerationException;
+import net.coboogie.recommendation.exception.RecommendationGenerationException;
+import net.coboogie.recommendation.exception.RecommendationLimitExceededException;
 import net.coboogie.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -70,6 +72,32 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAiDraftGeneration(AiDraftGenerationException ex) {
         log.error("ai draft generation failed: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    /**
+     * 추천 AI 생성 또는 파싱 실패 시 502를 반환한다.
+     *
+     * @param ex 발생한 예외
+     * @return 502 Bad Gateway
+     */
+    @ExceptionHandler(RecommendationGenerationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRecommendationGeneration(RecommendationGenerationException ex) {
+        log.error("recommendation generation failed: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    /**
+     * 추천 shuffle 일일 제한 초과 시 429를 반환한다.
+     *
+     * @param ex 발생한 예외
+     * @return 429 Too Many Requests
+     */
+    @ExceptionHandler(RecommendationLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRecommendationLimitExceeded(RecommendationLimitExceededException ex) {
+        log.warn("recommendation limit exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(ApiResponse.error(ex.getMessage()));
     }
 

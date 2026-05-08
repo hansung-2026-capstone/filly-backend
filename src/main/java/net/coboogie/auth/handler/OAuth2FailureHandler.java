@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
@@ -16,6 +17,7 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OAuth2FailureHandler implements AuthenticationFailureHandler {
 
     private final ObjectMapper objectMapper;
@@ -28,9 +30,7 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
-        // 에러 메시지를 로그로 찍고, 응답에도 담아줍니다.
-        System.out.println("OAuth2 Login Failure: " + exception.getMessage());
-        exception.printStackTrace();
+        log.warn("OAuth2 login failure: {}", exception.getMessage(), exception);
 
         objectMapper.writeValue(response.getWriter(), Map.of(
                 "error", "Authentication failed",

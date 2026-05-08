@@ -76,6 +76,7 @@ public class DiaryService {
     public DiaryResponse saveDiary(DiarySaveCommand command) {
         UserVO user = userRepository.findById(command.userId())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + command.userId()));
+        validateSaveCommand(command);
 
         DiaryEntryVO diary = DiaryEntryVO.builder()
                 .user(user)
@@ -102,6 +103,15 @@ public class DiaryService {
         invalidateMonthlyStat(command.userId(), saved.getWrittenAt());
 
         return DiaryResponse.from(saved, gcsStorageService::generateSignedUrl);
+    }
+
+    private void validateSaveCommand(DiarySaveCommand command) {
+        if (command.emoji() == null || command.emoji().isBlank()) {
+            throw new IllegalArgumentException("emoji는 필수입니다.");
+        }
+        if (command.writtenAt() == null) {
+            throw new IllegalArgumentException("writtenAt은 필수입니다.");
+        }
     }
 
     /**

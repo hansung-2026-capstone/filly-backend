@@ -139,7 +139,7 @@
     const accessToken = localStorage.getItem('accessToken');
     const writtenAt   = document.getElementById('writtenAt').value;
     const rawContent  = document.getElementById('rawContent').value.trim();
-    const emoji       = document.getElementById('emoji').value.trim() || null;
+    const emoji       = document.getElementById('emoji').value.trim() || '📝';
 
     if (!writtenAt) { showResult('error', '날짜를 입력해주세요.'); return; }
     if (!rawContent) { showResult('error', '일기 내용을 입력해주세요.'); return; }
@@ -149,13 +149,17 @@
     btn.textContent = '저장 중…';
 
     try {
+      const body = new FormData();
+      body.append('rawContent', rawContent);
+      body.append('emoji', emoji);
+      body.append('writtenAt', writtenAt);
+
       const res = await fetch('/api/v1/diaries', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + accessToken
         },
-        body: JSON.stringify({ rawContent, emoji, writtenAt })
+        body
       });
 
       const data = await res.json();

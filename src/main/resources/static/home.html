@@ -325,13 +325,15 @@ async function loadDiaries() {
 
 // ③ 저장
 async function saveDiary() {
-  const body = {
-    rawContent: document.getElementById('s-content').value,
-    emoji:      document.getElementById('s-emoji').value || null,
-    writtenAt:  document.getElementById('s-date').value
-  };
+  const rawContent = document.getElementById('s-content').value;
+  const emoji = document.getElementById('s-emoji').value;
+  const writtenAt = document.getElementById('s-date').value;
+  const body = new FormData();
+  if (rawContent) body.append('rawContent', rawContent);
+  body.append('emoji', emoji || '📝');
+  body.append('writtenAt', writtenAt);
   try {
-    const res  = await fetch('/api/v1/diaries', { method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res  = await fetch('/api/v1/diaries', { method: 'POST', headers: authHeader(), body });
     const json = await res.json();
     showResult('result-save', json, !res.ok);
   } catch(e) { showResult('result-save', { error: e.message }, true); }

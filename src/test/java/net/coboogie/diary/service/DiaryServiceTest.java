@@ -214,6 +214,7 @@ class DiaryServiceTest {
 
         DiarySaveCommand command = DiarySaveCommand.builder()
                 .userId(userId)
+                .emoji("📷")
                 .writtenAt(WRITTEN_AT)
                 .images(List.of(mockImage))
                 .build();
@@ -221,7 +222,7 @@ class DiaryServiceTest {
         String blobPath = "uploads/images/photo.jpg";
         String signedUrl = "https://storage.googleapis.com/filly-media-bucket/" + blobPath + "?X-Goog-Signature=abc";
         DiaryEntryVO savedDiary = DiaryEntryVO.builder()
-                .id(10L).user(mockUser).writtenAt(WRITTEN_AT)
+                .id(10L).user(mockUser).emoji("📷").writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now()).build();
         DiaryMediaVO savedMedia = DiaryMediaVO.builder()
                 .id(1L).diary(savedDiary).type(DiaryMediaVO.Type.IMAGE)
@@ -288,7 +289,7 @@ class DiaryServiceTest {
         );
 
         DiarySaveCommand command = DiarySaveCommand.builder()
-                .userId(userId).rawContent("내용").writtenAt(WRITTEN_AT)
+                .userId(userId).rawContent("내용").emoji("😊").writtenAt(WRITTEN_AT)
                 .aiAnalysis(aiAnalysis).build();
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
@@ -315,7 +316,7 @@ class DiaryServiceTest {
                 .createdAt(LocalDateTime.now()).build();
 
         DiarySaveCommand command = DiarySaveCommand.builder()
-                .userId(userId).rawContent("내용").writtenAt(WRITTEN_AT)
+                .userId(userId).rawContent("내용").emoji("😊").writtenAt(WRITTEN_AT)
                 .generatedText("AI가 작성한 일기").build();
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));

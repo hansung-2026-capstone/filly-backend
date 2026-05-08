@@ -30,6 +30,9 @@ public class AiConfig {
     @Value("classpath:prompts/avatar-system.txt")
     private Resource avatarSystemPrompt;
 
+    @Value("classpath:prompts/recommendation-system.txt")
+    private Resource recommendationSystemPrompt;
+
     /** 일기 초안 생성용 ChatClient. */
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) throws IOException {
@@ -50,6 +53,14 @@ public class AiConfig {
     @Qualifier("avatarChatClient")
     public ChatClient avatarChatClient(ChatClient.Builder builder) throws IOException {
         String systemPrompt = avatarSystemPrompt.getContentAsString(StandardCharsets.UTF_8);
+        return builder.defaultSystem(systemPrompt).build();
+    }
+
+    /** 추천 카드 생성 전용 ChatClient. */
+    @Bean
+    @Qualifier("recommendationChatClient")
+    public ChatClient recommendationChatClient(ChatClient.Builder builder) throws IOException {
+        String systemPrompt = recommendationSystemPrompt.getContentAsString(StandardCharsets.UTF_8);
         return builder.defaultSystem(systemPrompt).build();
     }
 }

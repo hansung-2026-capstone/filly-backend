@@ -3,6 +3,7 @@ package net.coboogie.auth.config;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import java.util.Optional;
  * 쿠키를 사용하면 브라우저가 동일한 값을 콜백 요청에 다시 전송하므로 인스턴스에 무관하게 검증할 수 있다.
  */
 @Component
+@Slf4j
 public class CookieOAuth2AuthorizationRequestRepository
         implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
 
@@ -36,19 +38,10 @@ public class CookieOAuth2AuthorizationRequestRepository
 //                .map(cookie -> deserialize(cookie.getValue()))
 //                .orElse(null);
 
-        // 1. 요청에 포함된 모든 쿠키 이름을 로그로 찍어봅니다.
-        if (request.getCookies() != null) {
-            System.out.println("--- Incoming Cookies Start ---");
-            for (Cookie c : request.getCookies()) {
-                System.out.println("Cookie Name: " + c.getName() + ", Path: " + c.getPath());
-            }
-            System.out.println("--- Incoming Cookies End ---");
-        } else {
-            System.out.println("No Cookies found in request!");
-        }
-
-        return findCookie(request, COOKIE_NAME)
-                .map(cookie -> deserialize(cookie.getValue()))
+        Optional<Cookie> cookie = findCookie(request, COOKIE_NAME);
+        log.debug("OAuth2 authorization request cookie present={}", cookie.isPresent());
+        return cookie
+                .map(value -> deserialize(value.getValue()))
                 .orElse(null);
     }
 
