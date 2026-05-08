@@ -111,9 +111,13 @@ public class RecommendationService {
      */
     @Transactional
     public RecommendationRevealResponse reveal(Long userId, Long drawId, Long cardId) {
+        RecommendationDrawVO draw = findDrawForUpdate(userId, drawId);
         RecommendationVO card = recommendationRepository.findByIdAndDraw_IdAndUser_Id(cardId, drawId, userId)
                 .orElseThrow(() -> new NoSuchElementException("추천 카드를 찾을 수 없습니다: " + cardId));
-        validateRevealWindow(drawId);
+        if (draw.getStatus() != RecommendationDrawVO.Status.ACTIVE) {
+            throw new IllegalArgumentException("진행 중인 추천 뽑기 세션이 아닙니다.");
+        }
+        validateRevealWindow(draw.getId());
         if (card.getStatus() != RecommendationVO.Status.ACTIVE || Boolean.TRUE.equals(card.getRevealed())) {
             throw new IllegalArgumentException("이미 공개되었거나 선택할 수 없는 추천 카드입니다.");
         }
@@ -133,10 +137,9 @@ public class RecommendationService {
      */
     @Transactional
     public RecommendationShuffleResponse shuffle(Long userId, Long drawId) {
+        lockUser(userId);
+        RecommendationDrawVO draw = findDrawForUpdate(userId, drawId);
         validateDailyShuffleLimit(userId);
-
-        RecommendationDrawVO draw = recommendationDrawRepository.findByIdAndUser_Id(drawId, userId)
-                .orElseThrow(() -> new NoSuchElementException("추천 뽑기 세션을 찾을 수 없습니다: " + drawId));
         if (draw.getStatus() != RecommendationDrawVO.Status.ACTIVE) {
             throw new IllegalArgumentException("진행 중인 추천 뽑기 세션이 아닙니다.");
         }
@@ -192,6 +195,16 @@ public class RecommendationService {
     private UserVO findUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
+    }
+
+    private void lockUser(Long userId) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+    }
+
+    private RecommendationDrawVO findDrawForUpdate(Long userId, Long drawId) {
+        return recommendationDrawRepository.findByIdAndUser_Id(drawId, userId)
+                .orElseThrow(() -> new NoSuchElementException("추천 뽑기 세션을 찾을 수 없습니다: " + drawId));
     }
 
     private List<RecommendationVO> saveCards(RecommendationDrawVO draw, UserVO user, RecommendationProfile profile,
