@@ -36,4 +36,12 @@ public interface ArchiveDiaryRepository extends JpaRepository<ArchiveDiaryVO, Lo
      * @return 존재 여부
      */
     boolean existsByFolder_IdAndDiary_Id(Long folderId, Long diaryId);
+
+    /**
+     * 폴더 삭제 전에 폴더와 일기의 연결 정보를 먼저 삭제한다.
+     *
+     * @param folderId 삭제할 폴더 ID
+     * @return 삭제된 연결 수
+     */
+    long deleteByFolder_Id(Long folderId);
 }
