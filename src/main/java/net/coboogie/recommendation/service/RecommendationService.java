@@ -12,6 +12,7 @@ import net.coboogie.recommendation.exception.RecommendationGenerationException;
 import net.coboogie.recommendation.exception.RecommendationLimitExceededException;
 import net.coboogie.recommendation.repository.RecommendationDrawRepository;
 import net.coboogie.recommendation.repository.RecommendationRepository;
+import net.coboogie.user.exception.UserNotFoundException;
 import net.coboogie.user.repository.UserRepository;
 import net.coboogie.vo.RecommendationDrawVO;
 import net.coboogie.vo.RecommendationVO;
@@ -112,6 +113,7 @@ public class RecommendationService {
     public RecommendationRevealResponse reveal(Long userId, Long drawId, Long cardId) {
         RecommendationVO card = recommendationRepository.findByIdAndDraw_IdAndUser_Id(cardId, drawId, userId)
                 .orElseThrow(() -> new NoSuchElementException("추천 카드를 찾을 수 없습니다: " + cardId));
+        validateRevealWindow(drawId);
         if (card.getStatus() != RecommendationVO.Status.ACTIVE || Boolean.TRUE.equals(card.getRevealed())) {
             throw new IllegalArgumentException("이미 공개되었거나 선택할 수 없는 추천 카드입니다.");
         }
@@ -189,7 +191,7 @@ public class RecommendationService {
 
     private UserVO findUser(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new UserNotFoundException(userId));
     }
 
     private List<RecommendationVO> saveCards(RecommendationDrawVO draw, UserVO user, RecommendationProfile profile,
@@ -209,7 +211,7 @@ public class RecommendationService {
     private RecommendationVO saveCard(RecommendationDrawVO draw, UserVO user, RecommendationProfile profile,
                                       AiRecommendationCard generatedCard, String fallbackCategory, int cardIndex,
                                       int roundNo, RecommendationVO.GenerationType generationType) {
-        String mainCategory = valueOrDefault(generatedCard.category(), fallbackCategory);
+        String mainCategory = fallbackCategory;
         String subCategory = valueOrDefault(
                 generatedCard.subCategory(),
                 recommendationCategorySelector.selectSubCategory(profile, mainCategory)
@@ -286,6 +288,14 @@ public class RecommendationService {
             throw new IllegalArgumentException("다른 추천 보기는 카드 1장을 공개한 뒤 사용할 수 있습니다.");
         }
         return revealedCards.get(0);
+    }
+
+    private void validateRevealWindow(Long drawId) {
+        List<RecommendationVO> activeCards = recommendationRepository
+                .findByDraw_IdAndStatusOrderByCardIndexAsc(drawId, RecommendationVO.Status.ACTIVE);
+        if (activeCards.size() != INITIAL_CARD_COUNT) {
+            throw new IllegalArgumentException("다른 추천 보기를 누른 뒤 새 카드 묶음에서 선택할 수 있습니다.");
+        }
     }
 
     private Set<String> collectExcludedCategories(Collection<RecommendationVO> activeCards,
