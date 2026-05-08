@@ -1,5 +1,7 @@
 package net.coboogie.diary.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -17,7 +19,17 @@ import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
@@ -39,6 +51,7 @@ import java.util.List;
 public class DiaryController {
 
 	private final DiaryService diaryService;
+	private final ObjectMapper objectMapper;
 
 	/**
 	 * AI 일기 초안 생성 API.
@@ -191,10 +204,10 @@ public class DiaryController {
 	public ResponseEntity<ApiResponse<DiaryResponse>> saveDiary(
 			@AuthenticationPrincipal Long userId,
 			@RequestPart(required = false) String rawContent,
-			@RequestPart(required = false) String emoji,
+			@RequestPart String emoji,
 			@RequestPart String writtenAt,
 			@RequestPart(required = false) List<MultipartFile> images,
-			@RequestPart(required = false) DiaryDraftResponse.AiAnalysis aiAnalysis,
+			@RequestPart(required = false, name = "aiAnalysis") String aiAnalysisJson,
 			@RequestPart(required = false) String generatedText
 	) {
 		DiarySaveCommand command = DiarySaveCommand.builder()
@@ -203,12 +216,23 @@ public class DiaryController {
 				.emoji(emoji)
 				.writtenAt(LocalDate.parse(writtenAt))
 				.images(images)
-				.aiAnalysis(aiAnalysis)
+				.aiAnalysis(parseAiAnalysis(aiAnalysisJson))
 				.generatedText(generatedText)
 				.build();
 
 		DiaryResponse response = diaryService.saveDiary(command);
 		return ResponseEntity.ok(ApiResponse.ok(response));
+	}
+
+	private DiaryDraftResponse.AiAnalysis parseAiAnalysis(String aiAnalysisJson) {
+		if (aiAnalysisJson == null || aiAnalysisJson.isBlank()) {
+			return null;
+		}
+		try {
+			return objectMapper.readValue(aiAnalysisJson, DiaryDraftResponse.AiAnalysis.class);
+		} catch (JsonProcessingException e) {
+			throw new IllegalArgumentException("aiAnalysis JSON 형식이 올바르지 않습니다.", e);
+		}
 	}
 
 	/**
