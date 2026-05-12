@@ -167,7 +167,7 @@ class DiaryServiceTest {
 
     @Test
     @DisplayName("일기 저장 시 diary_entries에 저장 후 DiaryResponse 반환")
-    void givenTextCommand_whenSaveDiary_thenSaveAndReturnResponse() {
+    void givenTextCommand_whenSaveDiary_thenSaveAndReturnResponse() throws JsonProcessingException {
         // given
         Long userId = 1L;
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
@@ -187,9 +187,28 @@ class DiaryServiceTest {
                 .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now())
                 .build();
+        AiDraftResult aiResult = new AiDraftResult(
+                "오늘 날씨가 맑았던 하루였다.",
+                List.of(new AiDraftResult.EmotionScore("평온", 0.7f)),
+                70,
+                List.of("산책"),
+                List.of("공원"),
+                List.of(),
+                List.of("라이프스타일"),
+                new AiDraftResult.Patterns("오후", 6, "혼자", false, null, "맑음", "좋음", "언급없음"),
+                "맑고 평온한 하루",
+                "담담함"
+        );
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
         given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
+        given(aiDraftGeneratorService.generate(
+                eq("오늘 날씨가 맑았다."),
+                eq(Collections.emptyList()),
+                isNull(),
+                eq(WRITTEN_AT)))
+                .willReturn(aiResult);
+        given(objectMapper.writeValueAsString(any())).willReturn("[]");
 
         // when
         DiaryResponse response = sut.saveDiary(command);
@@ -200,23 +219,43 @@ class DiaryServiceTest {
         assertThat(response.emoji()).isEqualTo("☀️");
         assertThat(response.writtenAt()).isEqualTo(WRITTEN_AT);
         verify(diaryEntryRepository).save(any(DiaryEntryVO.class));
+        verify(aiDraftGeneratorService).generate(
+                eq("오늘 날씨가 맑았다."),
+                eq(Collections.emptyList()),
+                isNull(),
+                eq(WRITTEN_AT));
+        verify(aiEmotionAnalysisRepository).save(any(AiEmotionAnalysisVO.class));
+        verify(aiDiaryResultRepository, never()).save(any());
         verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
     }
 
     @Test
     @DisplayName("이미지 저장 시 GCS 업로드 후 mediaUrls 포함하여 DiaryResponse 반환")
-    void givenImageCommand_whenSaveDiary_thenUploadToGcsAndReturnResponseWithMediaUrls() throws IOException {
+    void givenImageCommand_whenSaveDiary_thenUploadToGcsAndReturnResponseWithMediaUrls()
+            throws IOException, JsonProcessingException {
         // given
         Long userId = 1L;
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
         MultipartFile mockImage = mock(MultipartFile.class);
         given(mockImage.getSize()).willReturn(1024L);
+        DiaryDraftResponse.AiAnalysis aiAnalysis = new DiaryDraftResponse.AiAnalysis(
+                List.of(new AiDraftResult.EmotionScore("평온", 0.7f)),
+                60,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                new AiDraftResult.Patterns("오후", 5, "혼자", false, null, "없음", "보통", "언급없음"),
+                "차분한 하루",
+                "담담함"
+        );
 
         DiarySaveCommand command = DiarySaveCommand.builder()
                 .userId(userId)
                 .emoji("📷")
                 .writtenAt(WRITTEN_AT)
                 .images(List.of(mockImage))
+                .aiAnalysis(aiAnalysis)
                 .build();
 
         String blobPath = "uploads/images/photo.jpg";
@@ -233,6 +272,7 @@ class DiaryServiceTest {
         given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(blobPath);
         given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
         given(diaryMediaRepository.save(any(DiaryMediaVO.class))).willReturn(savedMedia);
+        given(objectMapper.writeValueAsString(any())).willReturn("[]");
 
         // when
         DiaryResponse response = sut.saveDiary(command);
@@ -243,6 +283,7 @@ class DiaryServiceTest {
         verify(gcsStorageService).upload(mockImage, "uploads/images");
         verify(gcsStorageService).generateSignedUrl(blobPath);
         verify(diaryMediaRepository).save(any(DiaryMediaVO.class));
+        verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any());
     }
 
     @Test
@@ -263,6 +304,29 @@ class DiaryServiceTest {
                 .hasMessageContaining("사용자를 찾을 수 없습니다");
 
         verifyNoInteractions(diaryEntryRepository);
+    }
+
+    @Test
+    @DisplayName("본문과 이미지가 모두 없으면 저장 시 IllegalArgumentException 발생")
+    void givenNoContentAndNoImages_whenSaveDiary_thenThrowIllegalArgumentException() {
+        // given
+        Long userId = 1L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiarySaveCommand command = DiarySaveCommand.builder()
+                .userId(userId)
+                .rawContent("   ")
+                .emoji("😊")
+                .writtenAt(WRITTEN_AT)
+                .build();
+
+        given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
+
+        // when & then
+        assertThatThrownBy(() -> sut.saveDiary(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("rawContent 또는 images");
+
+        verifyNoInteractions(diaryEntryRepository, aiDraftGeneratorService, aiEmotionAnalysisRepository);
     }
 
     @Test
@@ -306,7 +370,7 @@ class DiaryServiceTest {
 
     @Test
     @DisplayName("generatedText 포함 시 ai_diary_results 저장")
-    void givenGeneratedText_whenSaveDiary_thenSaveAiDiaryResult() {
+    void givenGeneratedText_whenSaveDiary_thenSaveAiDiaryResult() throws JsonProcessingException {
         // given
         Long userId = 1L;
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
@@ -315,19 +379,34 @@ class DiaryServiceTest {
                 .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now()).build();
 
+        DiaryDraftResponse.AiAnalysis aiAnalysis = new DiaryDraftResponse.AiAnalysis(
+                List.of(new AiDraftResult.EmotionScore("기쁨", 0.8f)),
+                75,
+                List.of("산책"),
+                List.of("공원"),
+                List.of(),
+                List.of("라이프스타일"),
+                new AiDraftResult.Patterns("오후", 7, "혼자", false, null, "맑음", "좋음", "언급없음"),
+                "즐거운 하루",
+                "따뜻함"
+        );
+
         DiarySaveCommand command = DiarySaveCommand.builder()
                 .userId(userId).rawContent("내용").emoji("😊").writtenAt(WRITTEN_AT)
+                .aiAnalysis(aiAnalysis)
                 .generatedText("AI가 작성한 일기").build();
 
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
         given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
+        given(objectMapper.writeValueAsString(any())).willReturn("[]");
 
         // when
         sut.saveDiary(command);
 
         // then
         verify(aiDiaryResultRepository).save(any(AiDiaryResultVO.class));
-        verify(aiEmotionAnalysisRepository, never()).save(any());
+        verify(aiEmotionAnalysisRepository).save(any(AiEmotionAnalysisVO.class));
+        verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any());
     }
 
     // ─────────────────────────────────────────────────────
