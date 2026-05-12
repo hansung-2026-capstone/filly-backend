@@ -90,8 +90,12 @@ public class DiaryService {
         List<DiaryMediaVO> savedMedia = saveMediaFiles(saved, command.images());
         saved.setMedia(savedMedia);
 
-        if (command.aiAnalysis() != null) {
-            saveEmotionAnalysis(saved, command.aiAnalysis());
+        DiaryDraftResponse.AiAnalysis aiAnalysis = command.aiAnalysis();
+        if (aiAnalysis == null) {
+            aiAnalysis = generateAnalysis(command);
+        }
+        if (aiAnalysis != null) {
+            saveEmotionAnalysis(saved, aiAnalysis);
         }
         if (command.generatedText() != null && !command.generatedText().isBlank()) {
             aiDiaryResultRepository.save(AiDiaryResultVO.builder()
@@ -112,6 +116,33 @@ public class DiaryService {
         if (command.writtenAt() == null) {
             throw new IllegalArgumentException("writtenAt은 필수입니다.");
         }
+        if (!hasTextContent(command) && !hasImageContent(command)) {
+            throw new IllegalArgumentException("rawContent 또는 images 중 하나는 필수입니다.");
+        }
+    }
+
+    private boolean hasTextContent(DiarySaveCommand command) {
+        return command.rawContent() != null && !command.rawContent().isBlank();
+    }
+
+    private boolean hasImageContent(DiarySaveCommand command) {
+        return command.images() != null
+                && command.images().stream().anyMatch(image -> image != null && !image.isEmpty());
+    }
+
+    /**
+     * 초안 생성 없이 저장된 일기의 입력값으로 AI 분석 결과만 생성한다.
+     * 사용자가 직접 작성한 내용을 보존하기 위해 생성된 초안 텍스트는 저장하지 않는다.
+     */
+    private DiaryDraftResponse.AiAnalysis generateAnalysis(DiarySaveCommand command) {
+        List<String> imageCaptions = extractCaptions(command.images());
+        AiDraftResult aiResult = aiDraftGeneratorService.generate(
+                command.rawContent(),
+                imageCaptions,
+                null,
+                command.writtenAt()
+        );
+        return toAiAnalysis(aiResult);
     }
 
     /**
@@ -334,20 +365,23 @@ public class DiaryService {
                 command.userId(), mediaUrls.size(), imageCaptions.size(),
                 voiceTranscription != null && !voiceTranscription.isBlank());
 
-        return new DiaryDraftResponse(
-                aiResult.generatedText(),
-                new DiaryDraftResponse.AiAnalysis(
-                        aiResult.emotions(),
-                        aiResult.happinessIndex(),
-                        aiResult.activities(),
-                        aiResult.places(),
-                        aiResult.people(),
-                        aiResult.iabCategories(),
-                        aiResult.patterns(),
-                        aiResult.moodSummary(),
-                        aiResult.tone()
-                ),
-                mediaUrls
+        return new DiaryDraftResponse(aiResult.generatedText(), toAiAnalysis(aiResult), mediaUrls);
+    }
+
+    /**
+     * Gemini 응답 DTO를 저장 가능한 AI 분석 DTO로 변환한다.
+     */
+    private DiaryDraftResponse.AiAnalysis toAiAnalysis(AiDraftResult aiResult) {
+        return new DiaryDraftResponse.AiAnalysis(
+                aiResult.emotions(),
+                aiResult.happinessIndex(),
+                aiResult.activities(),
+                aiResult.places(),
+                aiResult.people(),
+                aiResult.iabCategories(),
+                aiResult.patterns(),
+                aiResult.moodSummary(),
+                aiResult.tone()
         );
     }
 
