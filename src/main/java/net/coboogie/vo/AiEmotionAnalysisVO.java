@@ -43,7 +43,7 @@ public class AiEmotionAnalysisVO {
     @Column(name = "iab_categories", columnDefinition = "JSON")
     private String iabCategories;
 
-    // 레이어 4: 일상 패턴 (time_of_day, energy_level, social, spending, weather, health, sleep)
+    // 레이어 4: 일상 패턴 (시간/요일/식사/카페인 등 개인 반복 습관 후보 포함)
     @Column(name = "patterns", columnDefinition = "JSON")
     private String patterns;
 
