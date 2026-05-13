@@ -38,6 +38,18 @@ public class UserVO {
     @Column(name = "background_theme", columnDefinition = "TEXT")
     private String backgroundTheme;
 
+    @Builder.Default
+    @Column(name = "gender", nullable = false, columnDefinition = "varchar(20) default 'none'")
+    private String gender = "none";
+
+    @Builder.Default
+    @Column(name = "age_group", nullable = false, columnDefinition = "varchar(20) default 'none'")
+    private String ageGroup = "none";
+
+    @Builder.Default
+    @Column(name = "ai_draft_tone", nullable = false, columnDefinition = "varchar(20) default 'none'")
+    private String aiDraftTone = "none";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

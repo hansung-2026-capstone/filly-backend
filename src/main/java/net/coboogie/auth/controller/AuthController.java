@@ -11,6 +11,7 @@ import net.coboogie.user.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -57,6 +58,28 @@ public class AuthController {
         String newAccessToken = jwtTokenProvider.generateAccessToken(userId);
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(userId);
         return ResponseEntity.ok(ApiResponse.ok(new TokenResponse(newAccessToken, newRefreshToken)));
+    }
+
+    /**
+     * 현재 요청의 인증 컨텍스트를 비우고 로그아웃 성공 응답을 반환한다.
+     * <p>
+     * JWT는 서버에 저장하지 않는 stateless 방식이므로, 클라이언트는 이 API 성공 후 보관 중인
+     * accessToken과 refreshToken을 삭제해야 한다.
+     *
+     * @param userId JWT 인증 필터가 설정한 현재 사용자 ID
+     * @return 로그아웃 성공 응답
+     */
+    @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "현재 인증 컨텍스트를 비우고 로그아웃 성공 응답을 반환합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @AuthenticationPrincipal Long userId
+    ) {
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 
     record TokenRefreshRequest(String refreshToken) {}

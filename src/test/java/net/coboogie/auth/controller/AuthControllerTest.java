@@ -10,6 +10,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -94,5 +96,25 @@ class AuthControllerTest {
         assertThat(body).isNotNull();
         assertThat(body.success()).isFalse();
         assertThat(body.message()).isEqualTo("refreshToken이 만료되었거나 유효하지 않습니다.");
+    }
+
+    @Test
+    @DisplayName("로그아웃 성공 시 인증 컨텍스트를 비우고 200 반환")
+    void givenAuthenticatedUser_whenLogout_thenClearSecurityContext() {
+        // given
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(USER_ID, null)
+        );
+
+        // when
+        ResponseEntity<?> response = authController.logout(USER_ID);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        var body = (net.coboogie.common.response.ApiResponse<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.success()).isTrue();
+        assertThat(body.data()).isNull();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 }

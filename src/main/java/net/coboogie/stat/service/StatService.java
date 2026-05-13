@@ -120,7 +120,7 @@ public class StatService {
                 stat.getDiaryCount() != null ? stat.getDiaryCount() : 0,
                 stat.getTotalChars() != null ? stat.getTotalChars() : 0,
                 parseJson(stat.getEmotionDistribution(), INT_MAP_TYPE),
-                parseJson(stat.getKeywordCloud(), INT_MAP_TYPE),
+                normalizeKeywordCloud(parseJson(stat.getKeywordCloud(), INT_MAP_TYPE)),
                 parseJson(stat.getTopPeople(), STR_LIST_TYPE),
                 parseJson(stat.getDailyPattern(), PATTERN_MAP_TYPE)
         );
@@ -170,7 +170,7 @@ public class StatService {
             try {
                 List<String> categories = objectMapper.readValue(analysis.getIabCategories(), STR_LIST_TYPE);
                 for (String category : categories) {
-                    freq.merge(category, 1, Integer::sum);
+                    freq.merge(extractLeafKeyword(category), 1, Integer::sum);
                 }
             } catch (Exception e) {
                 log.warn("IAB 카테고리 파싱 실패: analysisId={}", analysis.getId());
@@ -180,6 +180,27 @@ public class StatService {
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
                         (a, b) -> a, LinkedHashMap::new));
+    }
+
+    private Map<String, Integer> normalizeKeywordCloud(Map<String, Integer> keywordCloud) {
+        if (keywordCloud.isEmpty()) {
+            return keywordCloud;
+        }
+        Map<String, Integer> normalized = new HashMap<>();
+        keywordCloud.forEach((keyword, count) ->
+                normalized.merge(extractLeafKeyword(keyword), count, Integer::sum));
+        return normalized.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                        (a, b) -> a, LinkedHashMap::new));
+    }
+
+    private String extractLeafKeyword(String keyword) {
+        int delimiterIndex = keyword.lastIndexOf(">");
+        if (delimiterIndex < 0) {
+            return keyword;
+        }
+        return keyword.substring(delimiterIndex + 1).trim();
     }
 
     /**

@@ -144,7 +144,16 @@ public class ShareService {
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .limit(MAX_KEYWORDS)
                 .map(Map.Entry::getKey)
+                .map(this::extractLeafKeyword)
                 .toList();
+    }
+
+    private String extractLeafKeyword(String keyword) {
+        int delimiterIndex = keyword.lastIndexOf(">");
+        if (delimiterIndex < 0) {
+            return keyword;
+        }
+        return keyword.substring(delimiterIndex + 1).trim();
     }
 
     /**

@@ -83,6 +83,7 @@ GCP 프로젝트 ID, GCS 버킷명 등 인프라 설정은 `src/main/resources/a
        └─ OAuth2SuccessHandler
             └─ JWT access(15분) + refresh(7일) → HTTP-only 쿠키
 POST /api/v1/auth/refresh   # 토큰 재발급
+POST /api/v1/auth/logout    # 로그아웃
 ```
 
 모든 보호 엔드포인트는 `JwtAuthenticationFilter`가 Bearer 토큰을 검증합니다.
@@ -93,6 +94,7 @@ POST /api/v1/auth/refresh   # 토큰 재발급
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | POST | `/auth/refresh` | JWT 리프레시 토큰 재발급 |
+| POST | `/auth/logout` | 로그아웃 |
 
 ### User
 | 메서드 | 경로 | 설명 |
@@ -100,6 +102,7 @@ POST /api/v1/auth/refresh   # 토큰 재발급
 | GET | `/users/me` | 내 정보 조회 |
 | PATCH | `/users/me/nickname` | 닉네임 수정 |
 | PATCH | `/users/me/background-theme` | 배경 테마 변경 |
+| PATCH | `/users/me/preferences` | 성별·나이대·AI 초안 어투 변경 |
 
 ### Diary
 | 메서드 | 경로 | 설명 |
