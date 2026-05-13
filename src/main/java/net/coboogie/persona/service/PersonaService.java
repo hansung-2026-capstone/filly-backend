@@ -20,6 +20,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -168,6 +169,7 @@ public class PersonaService {
         Map<String, Integer> activityFreq = new HashMap<>();
         Map<String, Integer> placeFreq = new HashMap<>();
         Map<String, Integer> iabFreq = new HashMap<>();
+        Map<String, Integer> patternFreq = new HashMap<>();
         double happinessSum = 0;
         int happinessCount = 0;
 
@@ -198,6 +200,23 @@ public class PersonaService {
                             objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
                     iabs.forEach(i -> iabFreq.merge(i, 1, Integer::sum));
                 }
+                if (a.getPatterns() != null) {
+                    Map<String, Object> patterns = objectMapper.readValue(
+                            a.getPatterns(), objectMapper.getTypeFactory()
+                                    .constructMapType(Map.class, String.class, Object.class));
+                    mergePatternCandidates(patternFreq, patterns.get("personal_pattern_candidates"));
+                    mergePatternCandidates(patternFreq, patterns.get("personalPatternCandidates"));
+                    mergePatternCandidates(patternFreq, patterns.get("wake_time"));
+                    mergePatternCandidates(patternFreq, patterns.get("wakeTime"));
+                    mergePatternCandidates(patternFreq, patterns.get("sleep_time"));
+                    mergePatternCandidates(patternFreq, patterns.get("sleepTime"));
+                    mergePatternCandidates(patternFreq, patterns.get("meal_pattern"));
+                    mergePatternCandidates(patternFreq, patterns.get("mealPattern"));
+                    mergePatternCandidates(patternFreq, patterns.get("caffeine_pattern"));
+                    mergePatternCandidates(patternFreq, patterns.get("caffeinePattern"));
+                    mergePatternCandidates(patternFreq, patterns.get("weekday_pattern"));
+                    mergePatternCandidates(patternFreq, patterns.get("weekdayPattern"));
+                }
                 if (a.getHappinessIndex() != null) {
                     happinessSum += a.getHappinessIndex();
                     happinessCount++;
@@ -212,6 +231,7 @@ public class PersonaService {
         String topActivities = formatTopKeys(activityFreq, 5);
         String topPlaces = formatTopKeys(placeFreq, 5);
         String topIab = formatTopKeys(iabFreq, 8);
+        String topPatterns = formatTopKeys(patternFreq, 8);
 
         return """
                 기간: %s ~ %s
@@ -221,8 +241,23 @@ public class PersonaService {
                 자주 한 활동: %s
                 자주 간 장소: %s
                 취향 태그: %s
+                개인 일상 패턴 후보: %s
                 """.formatted(startDate, endDate, diaryCount,
-                topEmotions, avgHappiness, topActivities, topPlaces, topIab);
+                topEmotions, avgHappiness, topActivities, topPlaces, topIab, topPatterns);
+    }
+
+    private void mergePatternCandidates(Map<String, Integer> freq, Object value) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof Collection<?> values) {
+            values.forEach(item -> mergePatternCandidates(freq, item));
+            return;
+        }
+        String normalized = String.valueOf(value).strip();
+        if (!normalized.isEmpty()) {
+            freq.merge(normalized, 1, Integer::sum);
+        }
     }
 
     private String formatTopEntries(Map<String, Double> map, int limit) {
