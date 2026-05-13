@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -141,17 +142,26 @@ public class RecommendationProfileBuilder {
         }
         try {
             Map<String, Object> patterns = objectMapper.readValue(analysis.getPatterns(), OBJECT_MAP_TYPE);
-            for (Map.Entry<String, Object> entry : patterns.entrySet()) {
-                if (entry.getValue() == null) {
-                    continue;
-                }
-                acc.patternFreq()
-                        .computeIfAbsent(entry.getKey(), k -> new HashMap<>())
-                        .merge(String.valueOf(entry.getValue()), 1, Integer::sum);
-            }
+            patterns.forEach((key, value) -> mergePatternValue(acc.patternFreq(), key, value));
         } catch (Exception e) {
             log.warn("추천 프로필 패턴 파싱 실패: analysisId={}", analysis.getId());
         }
+    }
+
+    private void mergePatternValue(Map<String, Map<String, Integer>> patternFreq, String key, Object value) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof Collection<?> values) {
+            values.forEach(item -> mergePatternValue(patternFreq, key, item));
+            return;
+        }
+        String normalized = String.valueOf(value).strip();
+        if (normalized.isEmpty()) {
+            return;
+        }
+        patternFreq.computeIfAbsent(key, k -> new HashMap<>())
+                .merge(normalized, 1, Integer::sum);
     }
 
     private String splitMainCategory(String category) {

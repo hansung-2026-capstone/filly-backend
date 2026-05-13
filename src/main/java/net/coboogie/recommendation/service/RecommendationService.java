@@ -83,6 +83,20 @@ public class RecommendationService {
     @Transactional
     public RecommendationDrawResponse draw(Long userId) {
         UserVO user = findUser(userId);
+        RecommendationDrawVO reusableDraw = recommendationDrawRepository
+                .findTopByUser_IdAndStatusOrderByUpdatedAtDesc(userId, RecommendationDrawVO.Status.ACTIVE)
+                .orElse(null);
+        if (reusableDraw != null) {
+            List<RecommendationVO> reusableCards = findReusableCards(reusableDraw.getId());
+            if (!reusableCards.isEmpty()) {
+                return new RecommendationDrawResponse(
+                        reusableDraw.getId(),
+                        reusableDraw.getCurrentRound(),
+                        toBackCards(reusableCards)
+                );
+            }
+        }
+
         RecommendationProfile profile = recommendationProfileBuilder.build(userId);
         String profileSnapshot = toJson(profile);
 
@@ -205,6 +219,13 @@ public class RecommendationService {
     private RecommendationDrawVO findDrawForUpdate(Long userId, Long drawId) {
         return recommendationDrawRepository.findByIdAndUser_Id(drawId, userId)
                 .orElseThrow(() -> new NoSuchElementException("추천 뽑기 세션을 찾을 수 없습니다: " + drawId));
+    }
+
+    private List<RecommendationVO> findReusableCards(Long drawId) {
+        return recommendationRepository.findByDraw_IdAndStatusInOrderByCardIndexAsc(
+                drawId,
+                List.of(RecommendationVO.Status.ACTIVE, RecommendationVO.Status.REVEALED)
+        );
     }
 
     private List<RecommendationVO> saveCards(RecommendationDrawVO draw, UserVO user, RecommendationProfile profile,
@@ -368,7 +389,11 @@ public class RecommendationService {
 
     private List<RecommendationCardResponse> toBackCards(List<RecommendationVO> cards) {
         return cards.stream()
-                .map(card -> new RecommendationCardResponse(card.getId(), card.getCardIndex(), false))
+                .map(card -> new RecommendationCardResponse(
+                        card.getId(),
+                        card.getCardIndex(),
+                        Boolean.TRUE.equals(card.getRevealed())
+                ))
                 .toList();
     }
 

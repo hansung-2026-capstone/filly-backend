@@ -19,6 +19,9 @@ class AiDraftResultTest {
         assertThat(result.patterns().timeOfDay()).isEqualTo("오후");
         assertThat(result.patterns().energyLevel()).isEqualTo(7);
         assertThat(result.patterns().spendingCategory()).isEqualTo("카페");
+        assertThat(result.patterns().caffeinePattern()).isEqualTo("오후 카페에서 커피");
+        assertThat(result.patterns().personalPatternCandidates())
+                .containsExactly("오후에 카페에서 커피를 마시는 신호");
     }
 
     @Test
@@ -29,6 +32,9 @@ class AiDraftResultTest {
         assertThat(result.patterns().timeOfDay()).isEqualTo("오후");
         assertThat(result.patterns().energyLevel()).isEqualTo(7);
         assertThat(result.patterns().spendingCategory()).isEqualTo("카페");
+        assertThat(result.patterns().caffeinePattern()).isEqualTo("오후 카페에서 커피");
+        assertThat(result.patterns().personalPatternCandidates())
+                .containsExactly("오후에 카페에서 커피를 마시는 신호");
     }
 
     private String snakeCaseJson() {
@@ -49,7 +55,13 @@ class AiDraftResultTest {
                     "spending_category": "카페",
                     "weather": "맑음",
                     "health": "보통",
-                    "sleep": "언급없음"
+                    "sleep": "언급없음",
+                    "wake_time": null,
+                    "sleep_time": null,
+                    "meal_pattern": null,
+                    "caffeine_pattern": "오후 카페에서 커피",
+                    "weekday_pattern": null,
+                    "personal_pattern_candidates": ["오후에 카페에서 커피를 마시는 신호"]
                   },
                   "moodSummary": "카페에서 보낸 날",
                   "tone": "회고적"
@@ -75,7 +87,13 @@ class AiDraftResultTest {
                     "spendingCategory": "카페",
                     "weather": "맑음",
                     "health": "보통",
-                    "sleep": "언급없음"
+                    "sleep": "언급없음",
+                    "wakeTime": null,
+                    "sleepTime": null,
+                    "mealPattern": null,
+                    "caffeinePattern": "오후 카페에서 커피",
+                    "weekdayPattern": null,
+                    "personalPatternCandidates": ["오후에 카페에서 커피를 마시는 신호"]
                   },
                   "moodSummary": "카페에서 보낸 날",
                   "tone": "회고적"
