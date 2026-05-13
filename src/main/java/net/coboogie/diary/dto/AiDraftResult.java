@@ -35,6 +35,24 @@ public record AiDraftResult(
             String spendingCategory,
             String weather,
             String health,
-            String sleep
-    ) {}
+            String sleep,
+            @JsonAlias("wakeTime")
+            String wakeTime,
+            @JsonAlias("sleepTime")
+            String sleepTime,
+            @JsonAlias("mealPattern")
+            String mealPattern,
+            @JsonAlias("caffeinePattern")
+            String caffeinePattern,
+            @JsonAlias("weekdayPattern")
+            String weekdayPattern,
+            @JsonAlias("personalPatternCandidates")
+            List<String> personalPatternCandidates
+    ) {
+        public Patterns(String timeOfDay, int energyLevel, String social, boolean spending,
+                        String spendingCategory, String weather, String health, String sleep) {
+            this(timeOfDay, energyLevel, social, spending, spendingCategory, weather, health, sleep,
+                    null, null, null, null, null, List.of());
+        }
+    }
 }
