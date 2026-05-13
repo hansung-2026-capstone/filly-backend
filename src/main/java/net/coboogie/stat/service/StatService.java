@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.YearMonth;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -223,15 +224,7 @@ public class StatService {
             try {
                 Map<String, Object> patterns = objectMapper.readValue(
                         analysis.getPatterns(), new TypeReference<>() {});
-                for (Map.Entry<String, Object> entry : patterns.entrySet()) {
-                    if (entry.getValue() == null) {
-                        continue;
-                    }
-                    String key = entry.getKey();
-                    String value = String.valueOf(entry.getValue());
-                    result.computeIfAbsent(key, k -> new HashMap<>())
-                            .merge(value, 1, Integer::sum);
-                }
+                patterns.forEach((key, value) -> mergePatternValue(result, key, value));
             } catch (Exception e) {
                 log.warn("패턴 파싱 실패: analysisId={}", analysis.getId());
             }
@@ -241,6 +234,27 @@ public class StatService {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
                         (a, b) -> a, LinkedHashMap::new)));
         return result;
+    }
+
+    /**
+     * 패턴 값이 배열이면 각 원소를 별도 후보로 누적하고, 단일 값이면 그대로 누적한다.
+     */
+    private void mergePatternValue(Map<String, Map<String, Integer>> result, String key, Object value) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof Collection<?> values) {
+            for (Object item : values) {
+                mergePatternValue(result, key, item);
+            }
+            return;
+        }
+        String normalized = String.valueOf(value).strip();
+        if (normalized.isEmpty()) {
+            return;
+        }
+        result.computeIfAbsent(key, k -> new HashMap<>())
+                .merge(normalized, 1, Integer::sum);
     }
 
     /**
