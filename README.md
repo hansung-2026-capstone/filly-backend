@@ -102,6 +102,7 @@ POST /api/v1/auth/logout    # 로그아웃
 | GET | `/users/me` | 내 정보 조회 |
 | PATCH | `/users/me/nickname` | 닉네임 수정 |
 | PATCH | `/users/me/background-theme` | 배경 테마 변경 |
+| PATCH | `/users/me/preferences` | 성별·나이대·AI 초안 어투 변경 |
 
 ### Diary
 | 메서드 | 경로 | 설명 |
