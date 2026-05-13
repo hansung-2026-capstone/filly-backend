@@ -13,6 +13,17 @@ import java.util.Optional;
 public interface RecommendationDrawRepository extends JpaRepository<RecommendationDrawVO, Long> {
 
     /**
+     * 사용자의 최신 활성 추천 뽑기 세션을 조회한다.
+     *
+     * @param userId 사용자 ID
+     * @param status 세션 상태
+     * @return 최신 추천 뽑기 세션
+     */
+    Optional<RecommendationDrawVO> findTopByUser_IdAndStatusOrderByUpdatedAtDesc(
+            Long userId,
+            RecommendationDrawVO.Status status);
+
+    /**
      * 사용자 소유의 추천 뽑기 세션을 조회한다.
      *
      * @param id     추천 뽑기 세션 ID
