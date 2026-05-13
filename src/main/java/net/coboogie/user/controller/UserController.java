@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import net.coboogie.common.response.ApiResponse;
 import net.coboogie.user.dto.BackgroundThemeUpdateRequest;
 import net.coboogie.user.dto.NicknameUpdateRequest;
+import net.coboogie.user.dto.UserPreferencesUpdateRequest;
 import net.coboogie.user.dto.UserResponse;
 import net.coboogie.user.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -97,6 +98,31 @@ public class UserController {
             @RequestBody NicknameUpdateRequest request
     ) {
         userService.updateNickname(userId, request.nickname());
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    /**
+     * 현재 인증된 사용자의 개인화 설정을 수정한다.
+     *
+     * @param userId  JWT에서 추출한 인증 사용자 ID
+     * @param request 성별, 나이대, AI 초안 어투 설정
+     * @return 데이터 없는 성공 응답
+     */
+    @PatchMapping("/me/preferences")
+    @Operation(
+            summary = "개인화 설정 수정",
+            description = "현재 로그인한 사용자의 성별, 나이대, AI 초안 어투를 수정합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "허용되지 않은 설정 값"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    public ResponseEntity<ApiResponse<Void>> updatePreferences(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody UserPreferencesUpdateRequest request
+    ) {
+        userService.updatePreferences(userId, request.gender(), request.ageGroup(), request.aiDraftTone());
         return ResponseEntity.ok(ApiResponse.ok());
     }
 }
