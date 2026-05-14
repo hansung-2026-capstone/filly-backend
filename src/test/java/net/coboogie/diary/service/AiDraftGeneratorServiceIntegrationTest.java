@@ -63,7 +63,10 @@ class AiDraftGeneratorServiceIntegrationTest {
                 "오늘 친구들과 한강에서 치킨을 먹었다. 날씨도 좋고 정말 즐거웠다.",
                 List.of(),
                 null,
-                LocalDate.of(2026, 4, 11)
+                LocalDate.of(2026, 4, 11),
+                "none",
+                "none",
+                "none"
         );
 
         // then
@@ -92,7 +95,10 @@ class AiDraftGeneratorServiceIntegrationTest {
                 "오늘 카페에 갔다",
                 List.of("아늑한 카페 내부", "커피 한 잔과 책"),
                 null,
-                LocalDate.of(2026, 4, 11)
+                LocalDate.of(2026, 4, 11),
+                "female",
+                "20대",
+                "warm"
         );
 
         // then

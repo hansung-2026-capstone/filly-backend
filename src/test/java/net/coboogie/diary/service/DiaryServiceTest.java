@@ -81,7 +81,17 @@ class DiaryServiceTest {
                 "따뜻했던 하루",
                 "실시간"
         );
-        given(aiDraftGeneratorService.generate(anyString(), anyList(), any(), any())).willReturn(aiResult);
+        UserVO mockUser = UserVO.builder()
+                .id(1L)
+                .oauthProvider("google")
+                .oauthId("abc")
+                .gender("female")
+                .ageGroup("20대")
+                .aiDraftTone("warm")
+                .build();
+        given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+        given(aiDraftGeneratorService.generate(anyString(), anyList(), any(), any(), any(), any(), any()))
+                .willReturn(aiResult);
 
         // when
         DiaryDraftResponse response = sut.createDraft(command);
@@ -118,7 +128,10 @@ class DiaryServiceTest {
 
         given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(blobPath);
         given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
-        given(aiDraftGeneratorService.generate(any(), anyList(), any(), any())).willReturn(aiResult);
+        UserVO mockUser = UserVO.builder().id(1L).oauthProvider("google").oauthId("abc").build();
+        given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+        given(aiDraftGeneratorService.generate(any(), anyList(), any(), any(), any(), any(), any()))
+                .willReturn(aiResult);
 
         // when
         DiaryDraftResponse response = sut.createDraft(command);
@@ -206,7 +219,10 @@ class DiaryServiceTest {
                 eq("오늘 날씨가 맑았다."),
                 eq(Collections.emptyList()),
                 isNull(),
-                eq(WRITTEN_AT)))
+                eq(WRITTEN_AT),
+                eq("none"),
+                eq("none"),
+                eq("none")))
                 .willReturn(aiResult);
         given(objectMapper.writeValueAsString(any())).willReturn("[]");
 
@@ -223,7 +239,10 @@ class DiaryServiceTest {
                 eq("오늘 날씨가 맑았다."),
                 eq(Collections.emptyList()),
                 isNull(),
-                eq(WRITTEN_AT));
+                eq(WRITTEN_AT),
+                eq("none"),
+                eq("none"),
+                eq("none"));
         verify(aiEmotionAnalysisRepository).save(any(AiEmotionAnalysisVO.class));
         verify(aiDiaryResultRepository, never()).save(any());
         verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
@@ -283,7 +302,7 @@ class DiaryServiceTest {
         verify(gcsStorageService).upload(mockImage, "uploads/images");
         verify(gcsStorageService).generateSignedUrl(blobPath);
         verify(diaryMediaRepository).save(any(DiaryMediaVO.class));
-        verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any());
+        verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -406,7 +425,7 @@ class DiaryServiceTest {
         // then
         verify(aiDiaryResultRepository).save(any(AiDiaryResultVO.class));
         verify(aiEmotionAnalysisRepository).save(any(AiEmotionAnalysisVO.class));
-        verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any());
+        verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any(), any(), any(), any());
     }
 
     // ─────────────────────────────────────────────────────
