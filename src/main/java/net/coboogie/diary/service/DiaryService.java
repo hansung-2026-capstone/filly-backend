@@ -92,7 +92,7 @@ public class DiaryService {
 
         DiaryDraftResponse.AiAnalysis aiAnalysis = command.aiAnalysis();
         if (aiAnalysis == null) {
-            aiAnalysis = generateAnalysis(command);
+            aiAnalysis = generateAnalysis(command, user);
         }
         if (aiAnalysis != null) {
             saveEmotionAnalysis(saved, aiAnalysis);
@@ -134,13 +134,16 @@ public class DiaryService {
      * 초안 생성 없이 저장된 일기의 입력값으로 AI 분석 결과만 생성한다.
      * 사용자가 직접 작성한 내용을 보존하기 위해 생성된 초안 텍스트는 저장하지 않는다.
      */
-    private DiaryDraftResponse.AiAnalysis generateAnalysis(DiarySaveCommand command) {
+    private DiaryDraftResponse.AiAnalysis generateAnalysis(DiarySaveCommand command, UserVO user) {
         List<String> imageCaptions = extractCaptions(command.images());
         AiDraftResult aiResult = aiDraftGeneratorService.generate(
                 command.rawContent(),
                 imageCaptions,
                 null,
-                command.writtenAt()
+                command.writtenAt(),
+                user.getGender(),
+                user.getAgeGroup(),
+                user.getAiDraftTone()
         );
         return toAiAnalysis(aiResult);
     }
@@ -341,6 +344,8 @@ public class DiaryService {
      */
     public DiaryDraftResponse createDraft(DiaryDraftCommand command) {
         validateInput(command);
+        UserVO user = userRepository.findById(command.userId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + command.userId()));
         int imageCount = command.images() == null ? 0 : command.images().size();
         boolean hasText = command.textContent() != null && !command.textContent().isBlank();
         boolean hasVoice = command.voice() != null && !command.voice().isEmpty();
@@ -359,7 +364,10 @@ public class DiaryService {
                 command.textContent(),
                 imageCaptions,
                 voiceTranscription,
-                command.writtenAt()
+                command.writtenAt(),
+                user.getGender(),
+                user.getAgeGroup(),
+                user.getAiDraftTone()
         );
         log.info("AI draft complete userId={} mediaCount={} captionCount={} hasVoiceTranscription={}",
                 command.userId(), mediaUrls.size(), imageCaptions.size(),
