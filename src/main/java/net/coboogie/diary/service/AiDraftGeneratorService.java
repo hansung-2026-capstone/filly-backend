@@ -44,11 +44,16 @@ public class AiDraftGeneratorService {
      * @param imageCaptions      BLIP 모델로 추출된 이미지 장면 설명 목록
      * @param voiceTranscription Chirp STT로 전사된 음성 메모 (null 허용)
      * @param writtenAt          일기 작성 날짜
+     * @param gender             사용자 성별 설정
+     * @param ageGroup           사용자 나이대 설정
+     * @param aiDraftTone        사용자 선호 초안 어투 설정
      * @return AI가 생성한 일기 텍스트 및 감정 분석 결과
      */
     public AiDraftResult generate(String textContent, List<String> imageCaptions,
-                                  String voiceTranscription, LocalDate writtenAt) {
-        String userMessage = buildUserMessage(textContent, imageCaptions, voiceTranscription, writtenAt);
+                                  String voiceTranscription, LocalDate writtenAt,
+                                  String gender, String ageGroup, String aiDraftTone) {
+        String userMessage = buildUserMessage(
+                textContent, imageCaptions, voiceTranscription, writtenAt, gender, ageGroup, aiDraftTone);
         long startedAt = System.currentTimeMillis();
         log.info("Gemini diary draft request start writtenAt={} textLength={} captionCount={} hasVoice={}",
                 writtenAt,
@@ -73,11 +78,24 @@ public class AiDraftGeneratorService {
      * 요청별 데이터를 조합하여 user 메시지를 구성한다.
      * 시스템 역할 정의는 AiConfig의 defaultSystem에서 처리하므로 여기서는 데이터만 담는다.
      */
-    private String buildUserMessage(String textContent, List<String> imageCaptions,
-                                    String voiceTranscription, LocalDate writtenAt) {
+    String buildUserMessage(String textContent, List<String> imageCaptions,
+                            String voiceTranscription, LocalDate writtenAt,
+                            String gender, String ageGroup, String aiDraftTone) {
         return """
                 [작성 날짜]
                 %s
+
+                [개인화 설정]
+                성별: %s
+                나이대: %s
+                선호 어투: %s
+
+                [개인화 적용 규칙]
+                - 개인화 설정은 generatedText의 문체와 표현 강도에만 반영하세요.
+                - 설정 없음인 항목은 generatedText에 반영하지 마세요.
+                - 성별과 나이대는 본문에 직접 언급하지 마세요.
+                - 입력에 없는 사건, 감정, 관계를 만들지 마세요.
+                - emotions, happinessIndex, activities, places, people, iabCategories, patterns는 입력 내용 기준으로만 판단하세요.
 
                 [텍스트 메모]
                 %s
@@ -89,10 +107,42 @@ public class AiDraftGeneratorService {
                 %s
                 """.formatted(
                 writtenAt.format(DATE_FORMATTER),
+                displayPreference(gender),
+                displayPreference(ageGroup),
+                describeTone(aiDraftTone),
                 orNone(textContent),
                 orNone(voiceTranscription),
                 imageCaptions.isEmpty() ? "(없음)" : String.join("\n", imageCaptions)
         );
+    }
+
+    private String displayPreference(String value) {
+        if (value == null || value.isBlank()) {
+            return "설정 없음";
+        }
+        String normalized = value.trim();
+        if ("none".equals(normalized)) {
+            return "설정 없음";
+        }
+        return switch (normalized) {
+            case "male" -> "남성";
+            case "female" -> "여성";
+            default -> normalized;
+        };
+    }
+
+    private String describeTone(String aiDraftTone) {
+        if (aiDraftTone == null || aiDraftTone.isBlank()) {
+            return "기본 자연스러운 일기체";
+        }
+        return switch (aiDraftTone.trim()) {
+            case "calm" -> "차분하고 담백한 문체";
+            case "warm" -> "따뜻하고 다정한 문체";
+            case "lively" -> "밝고 생동감 있는 문체";
+            case "literary" -> "약간 문학적이지만 과장 없는 문체";
+            case "reflective" -> "생각과 감정을 차분히 돌아보는 문체";
+            default -> "기본 자연스러운 일기체";
+        };
     }
 
     /**
