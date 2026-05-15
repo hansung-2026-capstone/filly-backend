@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
@@ -190,6 +191,9 @@ public class DiaryService {
         }
         List<DiaryMediaVO> result = new ArrayList<>();
         for (MultipartFile image : images) {
+            if (image == null || image.isEmpty()) {
+                continue;
+            }
             try {
                 String url = gcsStorageService.upload(image, "uploads/images");
                 DiaryMediaVO media = DiaryMediaVO.builder()
@@ -204,6 +208,103 @@ public class DiaryService {
             }
         }
         return result;
+    }
+
+    /**
+     * 기존 일기에 이미지 파일을 추가한다.
+     *
+     * @param diaryId 추가 대상 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @param images  추가할 이미지 파일 목록
+     * @return 파일 추가 후 일기 응답 DTO
+     */
+    @Transactional
+    public DiaryResponse addDiaryMedia(Long diaryId, Long userId, List<MultipartFile> images) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        validateImages(images);
+
+        List<DiaryMediaVO> addedMedia = saveMediaFiles(diary, images);
+        if (diary.getMedia() == null) {
+            diary.setMedia(new ArrayList<>());
+        }
+        diary.getMedia().addAll(addedMedia);
+        diary.setUpdatedAt(LocalDateTime.now());
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
+
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
+    }
+
+    /**
+     * 기존 일기의 특정 이미지 파일을 새 파일로 교체한다.
+     *
+     * @param diaryId  수정 대상 일기 ID
+     * @param userId   JWT 인증 사용자 ID
+     * @param mediaId  교체 대상 미디어 ID
+     * @param image    새 이미지 파일
+     * @return 파일 교체 후 일기 응답 DTO
+     */
+    @Transactional
+    public DiaryResponse replaceDiaryMedia(Long diaryId, Long userId, Long mediaId, MultipartFile image) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        DiaryMediaVO media = diaryMediaRepository.findByIdAndDiary_IdAndDiary_User_Id(mediaId, diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("미디어를 찾을 수 없습니다: " + mediaId));
+        validateImage(image);
+
+        String oldBlobName = media.getGcsUrl();
+        try {
+            String newBlobName = gcsStorageService.upload(image, "uploads/images");
+            media.setGcsUrl(newBlobName);
+            media.setFileSize((int) image.getSize());
+            media.setType(DiaryMediaVO.Type.IMAGE);
+            diary.setUpdatedAt(LocalDateTime.now());
+            gcsStorageService.delete(oldBlobName);
+        } catch (IOException e) {
+            throw new UncheckedIOException("이미지 업로드 실패: " + image.getOriginalFilename(), e);
+        }
+
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
+    }
+
+    /**
+     * 기존 일기의 특정 이미지 파일을 삭제한다.
+     *
+     * @param diaryId 삭제 대상 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @param mediaId 삭제 대상 미디어 ID
+     * @return 파일 삭제 후 일기 응답 DTO
+     */
+    @Transactional
+    public DiaryResponse deleteDiaryMedia(Long diaryId, Long userId, Long mediaId) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        DiaryMediaVO media = diaryMediaRepository.findByIdAndDiary_IdAndDiary_User_Id(mediaId, diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("미디어를 찾을 수 없습니다: " + mediaId));
+
+        String blobName = media.getGcsUrl();
+        if (diary.getMedia() != null) {
+            diary.getMedia().removeIf(item -> Objects.equals(item.getId(), mediaId));
+        }
+        diaryMediaRepository.delete(media);
+        gcsStorageService.delete(blobName);
+        diary.setUpdatedAt(LocalDateTime.now());
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
+
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
+    }
+
+    private void validateImages(List<MultipartFile> images) {
+        if (images == null || images.stream().noneMatch(image -> image != null && !image.isEmpty())) {
+            throw new IllegalArgumentException("images는 하나 이상 필요합니다.");
+        }
+    }
+
+    private void validateImage(MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            throw new IllegalArgumentException("image는 필수입니다.");
+        }
     }
 
     /**
@@ -315,7 +416,18 @@ public class DiaryService {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
         invalidateMonthlyStat(userId, diary.getWrittenAt());
+        deleteMediaBlobs(diary);
         diaryEntryRepository.delete(diary);
+    }
+
+    private void deleteMediaBlobs(DiaryEntryVO diary) {
+        if (diary.getMedia() == null || diary.getMedia().isEmpty()) {
+            return;
+        }
+        diary.getMedia().stream()
+                .map(DiaryMediaVO::getGcsUrl)
+                .filter(Objects::nonNull)
+                .forEach(gcsStorageService::delete);
     }
 
     /**

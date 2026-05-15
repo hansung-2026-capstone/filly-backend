@@ -56,8 +56,6 @@ class ImageAnalysisServiceIntegrationTest {
 
         // then
         System.out.println("추출된 캡션: " + result.caption());
-        System.out.println("추출된 무드: " + result.mood());
         assertThat(result.caption()).isNotBlank();
-        assertThat(result.mood()).isNotBlank();
     }
 }

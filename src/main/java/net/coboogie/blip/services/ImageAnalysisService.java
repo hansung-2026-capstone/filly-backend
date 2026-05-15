@@ -63,11 +63,10 @@ public class ImageAnalysisService {
             throw new IllegalStateException("BLIP API 응답이 비어 있습니다.");
         }
         BlipAnalyzeResponse.Data data = response.getBody().getData();
-        log.info("BLIP analyze complete filename={} elapsedMs={} hasCaption={} hasMood={}",
+        log.info("BLIP analyze complete filename={} elapsedMs={} hasCaption={}",
                 file.getOriginalFilename(), System.currentTimeMillis() - startedAt,
-                data.getCaption() != null && !data.getCaption().isBlank(),
-                data.getMood() != null && !data.getMood().isBlank());
-        return new ImageAnalysisResult(data.getCaption(), data.getMood());
+                data.getCaption() != null && !data.getCaption().isBlank());
+        return new ImageAnalysisResult(data.getCaption());
     }
 
     private String abbreviate(String value, int maxLength) {

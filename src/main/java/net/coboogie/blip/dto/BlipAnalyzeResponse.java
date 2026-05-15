@@ -14,6 +14,5 @@ public class BlipAnalyzeResponse {
     @Setter
     public static class Data {
         private String caption;
-        private String mood;
     }
 }
