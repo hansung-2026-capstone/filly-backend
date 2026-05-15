@@ -95,6 +95,29 @@ public class GcsStorageService {
     }
 
     /**
+     * GCS 객체를 삭제한다.
+     * 로컬 환경({@code storage.enabled=false})에서는 실제 삭제를 생략한다.
+     *
+     * @param blobName GCS blob 경로 또는 레거시 full URL
+     * @return 삭제되었거나 로컬 환경에서 삭제가 생략되면 true, 객체가 없거나 실패하면 false
+     */
+    public boolean delete(String blobName) {
+        String resolvedBlobName = stripBucketPrefix(blobName);
+        if (!storageEnabled) {
+            log.info("GCS delete skipped storageEnabled=false blobName={}", resolvedBlobName);
+            return true;
+        }
+        try {
+            boolean deleted = storage.delete(BlobId.of(bucketName, resolvedBlobName));
+            log.info("GCS delete complete bucket={} blobName={} deleted={}", bucketName, resolvedBlobName, deleted);
+            return deleted;
+        } catch (RuntimeException e) {
+            log.warn("GCS delete failed bucket={} blobName={}", bucketName, resolvedBlobName, e);
+            return false;
+        }
+    }
+
+    /**
      * GCS 객체를 data URL로 변환한다.
      * <p>
      * 공유 이미지 생성처럼 브라우저 캔버스에 이미지를 그리는 흐름에서는 외부 GCS URL의 CORS
