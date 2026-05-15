@@ -30,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -594,6 +595,105 @@ class DiaryServiceTest {
     }
 
     // ─────────────────────────────────────────────────────
+    // diary media 테스트
+    // ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("일기 이미지 추가 시 GCS 업로드 후 미디어 응답에 id와 url 포함")
+    void givenImages_whenAddDiaryMedia_thenUploadAndReturnMedia() throws IOException {
+        // given
+        Long userId = 1L;
+        Long diaryId = 10L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(diaryId).user(mockUser).rawContent("내용").emoji("😊")
+                .writtenAt(WRITTEN_AT).media(new ArrayList<>()).build();
+        MultipartFile image = mock(MultipartFile.class);
+        given(image.isEmpty()).willReturn(false);
+        given(image.getSize()).willReturn(2048L);
+        String blobPath = "uploads/images/photo.jpg";
+        String signedUrl = "https://storage.googleapis.com/bucket/uploads/images/photo.jpg?sig=abc";
+        DiaryMediaVO savedMedia = DiaryMediaVO.builder()
+                .id(3L).diary(diary).type(DiaryMediaVO.Type.IMAGE).gcsUrl(blobPath).fileSize(2048).build();
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+        given(gcsStorageService.upload(image, "uploads/images")).willReturn(blobPath);
+        given(diaryMediaRepository.save(any(DiaryMediaVO.class))).willReturn(savedMedia);
+        given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
+
+        // when
+        DiaryResponse response = sut.addDiaryMedia(diaryId, userId, List.of(image));
+
+        // then
+        assertThat(response.media()).hasSize(1);
+        assertThat(response.media().get(0).id()).isEqualTo(3L);
+        assertThat(response.mediaUrls()).containsExactly(signedUrl);
+        verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
+    }
+
+    @Test
+    @DisplayName("일기 이미지 교체 시 새 파일 업로드 후 기존 GCS 객체 삭제")
+    void givenImage_whenReplaceDiaryMedia_thenUploadNewAndDeleteOld() throws IOException {
+        // given
+        Long userId = 1L;
+        Long diaryId = 10L;
+        Long mediaId = 3L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(diaryId).user(mockUser).rawContent("내용").emoji("😊").writtenAt(WRITTEN_AT).build();
+        DiaryMediaVO media = DiaryMediaVO.builder()
+                .id(mediaId).diary(diary).type(DiaryMediaVO.Type.IMAGE)
+                .gcsUrl("uploads/images/old.jpg").fileSize(100).build();
+        diary.setMedia(List.of(media));
+        MultipartFile image = mock(MultipartFile.class);
+        given(image.isEmpty()).willReturn(false);
+        given(image.getSize()).willReturn(300L);
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+        given(diaryMediaRepository.findByIdAndDiary_IdAndDiary_User_Id(mediaId, diaryId, userId))
+                .willReturn(Optional.of(media));
+        given(gcsStorageService.upload(image, "uploads/images")).willReturn("uploads/images/new.jpg");
+        given(gcsStorageService.generateSignedUrl("uploads/images/new.jpg")).willReturn("signed-new");
+
+        // when
+        DiaryResponse response = sut.replaceDiaryMedia(diaryId, userId, mediaId, image);
+
+        // then
+        assertThat(response.media().get(0).url()).isEqualTo("signed-new");
+        verify(gcsStorageService).delete("uploads/images/old.jpg");
+        verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
+    }
+
+    @Test
+    @DisplayName("일기 이미지 삭제 시 DB와 GCS에서 삭제")
+    void givenMediaId_whenDeleteDiaryMedia_thenDeleteMediaAndBlob() {
+        // given
+        Long userId = 1L;
+        Long diaryId = 10L;
+        Long mediaId = 3L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryMediaVO media = DiaryMediaVO.builder()
+                .id(mediaId).type(DiaryMediaVO.Type.IMAGE).gcsUrl("uploads/images/photo.jpg").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(diaryId).user(mockUser).rawContent("내용").emoji("😊")
+                .writtenAt(WRITTEN_AT).media(new ArrayList<>(List.of(media))).build();
+        media.setDiary(diary);
+
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+        given(diaryMediaRepository.findByIdAndDiary_IdAndDiary_User_Id(mediaId, diaryId, userId))
+                .willReturn(Optional.of(media));
+
+        // when
+        DiaryResponse response = sut.deleteDiaryMedia(diaryId, userId, mediaId);
+
+        // then
+        assertThat(response.media()).isEmpty();
+        verify(diaryMediaRepository).delete(media);
+        verify(gcsStorageService).delete("uploads/images/photo.jpg");
+        verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
+    }
+
+    // ─────────────────────────────────────────────────────
     // deleteDiary 테스트
     // ─────────────────────────────────────────────────────
 
@@ -604,10 +704,14 @@ class DiaryServiceTest {
         Long userId = 1L;
         Long diaryId = 10L;
         UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryMediaVO media = DiaryMediaVO.builder()
+                .id(3L).type(DiaryMediaVO.Type.IMAGE).gcsUrl("uploads/images/photo.jpg").build();
         DiaryEntryVO diary = DiaryEntryVO.builder()
                 .id(diaryId).user(mockUser).rawContent("내용")
                 .writtenAt(WRITTEN_AT)
+                .media(List.of(media))
                 .createdAt(LocalDateTime.now()).build();
+        media.setDiary(diary);
 
         given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
 
@@ -616,6 +720,7 @@ class DiaryServiceTest {
 
         // then
         verify(diaryEntryRepository).delete(diary);
+        verify(gcsStorageService).delete("uploads/images/photo.jpg");
         verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
     }
 
