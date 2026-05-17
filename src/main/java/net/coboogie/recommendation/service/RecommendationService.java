@@ -22,6 +22,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -250,10 +252,13 @@ public class RecommendationService {
                 generatedCard.subCategory(),
                 recommendationCategorySelector.selectSubCategory(profile, mainCategory)
         );
+        String contentType = valueOrDefault(generatedCard.contentType(), "ACTIVITY");
+        String searchKeyword = valueOrDefault(generatedCard.searchKeyword(), mainCategory + " 추천");
         RecommendationContent content = new RecommendationContent(
                 valueOrDefault(generatedCard.title(), "오늘의 추천"),
                 valueOrDefault(generatedCard.description(), "지금의 취향과 분위기에 맞춘 추천입니다."),
-                valueOrDefault(generatedCard.searchKeyword(), mainCategory + " 추천")
+                searchKeyword,
+                buildLinkUrl(contentType, searchKeyword)
         );
 
         return recommendationRepository.save(RecommendationVO.builder()
@@ -262,7 +267,7 @@ public class RecommendationService {
                 .roundNo(roundNo)
                 .iabMainCategory(mainCategory)
                 .iabSubCategory(subCategory)
-                .contentType(valueOrDefault(generatedCard.contentType(), "ACTIVITY"))
+                .contentType(contentType)
                 .contentRef(toJson(content))
                 .reason(valueOrDefault(generatedCard.reason(), "최근 일기 분석 데이터와 취향 태그를 바탕으로 추천했습니다."))
                 .cardIndex(cardIndex)
@@ -374,6 +379,10 @@ public class RecommendationService {
 
     private RecommendationRevealResponse toRevealResponse(RecommendationVO card) {
         RecommendationContent content = parseContent(card.getContentRef());
+        String linkUrl = valueOrDefault(
+                content.linkUrl(),
+                buildLinkUrl(card.getContentType(), content.searchKeyword())
+        );
         return new RecommendationRevealResponse(
                 card.getDraw() == null ? null : card.getDraw().getId(),
                 card.getId(),
@@ -383,6 +392,7 @@ public class RecommendationService {
                 content.title(),
                 content.description(),
                 content.searchKeyword(),
+                linkUrl,
                 card.getReason()
         );
     }
@@ -402,7 +412,7 @@ public class RecommendationService {
             return objectMapper.readValue(contentRef, RecommendationContent.class);
         } catch (JsonProcessingException e) {
             log.warn("추천 카드 content_ref 파싱 실패: {}", contentRef);
-            return new RecommendationContent("오늘의 추천", "추천 내용을 불러오지 못했습니다.", null);
+            return new RecommendationContent("오늘의 추천", "추천 내용을 불러오지 못했습니다.", null, null);
         }
     }
 
@@ -419,11 +429,20 @@ public class RecommendationService {
                 category,
                 subCategory,
                 "ACTIVITY",
-                category + " 추천",
-                "최근 기록된 취향과 일상 패턴에 맞춘 가벼운 추천입니다.",
-                category + " 추천",
-                "사용자의 누적 일기 분석 데이터를 바탕으로 추천했습니다."
+                subCategory + " 30분 루틴",
+                "오늘 안에 바로 끝낼 수 있게 30분만 잡고 작게 시작해보세요. 준비물이 거의 없는 방식으로 시작하면 부담 없이 기분 전환을 만들 수 있습니다.",
+                subCategory + " 30분 루틴",
+                "최근 기록된 취향과 일상 패턴을 바탕으로 부담이 낮은 실행형 추천을 선택했습니다."
         );
+    }
+
+    private String buildLinkUrl(String contentType, String searchKeyword) {
+        boolean notMusic = !"MUSIC".equalsIgnoreCase(valueOrDefault(contentType, ""));
+        if (notMusic || searchKeyword == null || searchKeyword.isBlank()) {
+            return null;
+        }
+        return "https://www.youtube.com/results?search_query="
+                + URLEncoder.encode(searchKeyword, StandardCharsets.UTF_8);
     }
 
     private String valueOrDefault(String value, String defaultValue) {
@@ -447,7 +466,7 @@ public class RecommendationService {
         return value.substring(0, maxLength) + "...";
     }
 
-    private record RecommendationContent(String title, String description, String searchKeyword) {
+    private record RecommendationContent(String title, String description, String searchKeyword, String linkUrl) {
     }
 
     private record AiRecommendationResponse(List<AiRecommendationCard> cards) {
