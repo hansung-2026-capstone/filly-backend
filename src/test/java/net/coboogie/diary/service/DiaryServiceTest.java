@@ -2,6 +2,7 @@ package net.coboogie.diary.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import net.coboogie.blip.services.ImageAnalysisService;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -46,6 +48,7 @@ class DiaryServiceTest {
     @Mock private GcsStorageService gcsStorageService;
     @Mock private AiDraftGeneratorService aiDraftGeneratorService;
     @Mock private SpeechToTextService speechToTextService;
+    @Mock private ImageAnalysisService imageAnalysisService;
     @Mock private UserRepository userRepository;
     @Mock private DiaryEntryRepository diaryEntryRepository;
     @Mock private DiaryMediaRepository diaryMediaRepository;
@@ -140,6 +143,112 @@ class DiaryServiceTest {
         assertThat(response.mediaUrls()).containsExactly(signedUrl);
         verify(gcsStorageService).upload(mockImage, "uploads/images");
         verify(gcsStorageService).generateSignedUrl(blobPath);
+    }
+
+    @Test
+    @DisplayName("v2 텍스트만 입력 시 STT와 BLIP 없이 멀티모달 AI 초안 반환")
+    void givenTextOnlyInput_whenCreateDraftV2_thenUseMultimodalGeneratorWithoutPreprocessing() {
+        // given
+        DiaryDraftCommand command = DiaryDraftCommand.builder()
+                .userId(1L)
+                .textContent("오늘은 날씨가 좋았다")
+                .writtenAt(WRITTEN_AT)
+                .build();
+
+        AiDraftResult aiResult = new AiDraftResult(
+                "오늘은 날씨가 좋아 마음도 가벼웠다.",
+                List.of(new AiDraftResult.EmotionScore("기쁨", 0.8f)),
+                75,
+                List.of("산책"),
+                List.of(),
+                List.of(),
+                List.of(),
+                new AiDraftResult.Patterns("오후", 7, "혼자", false, null, "맑음", "좋음", "언급없음"),
+                "가벼운 하루",
+                "실시간"
+        );
+        UserVO mockUser = UserVO.builder()
+                .id(1L)
+                .oauthProvider("google")
+                .oauthId("abc")
+                .gender("female")
+                .ageGroup("20대")
+                .aiDraftTone("warm")
+                .build();
+        given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+        given(aiDraftGeneratorService.generateMultimodal(anyString(), any(), any(), any(), any(), any(), any()))
+                .willReturn(aiResult);
+
+        // when
+        DiaryDraftResponse response = sut.createDraftV2(command);
+
+        // then
+        assertThat(response.generatedText()).isEqualTo("오늘은 날씨가 좋아 마음도 가벼웠다.");
+        assertThat(response.mediaUrls()).isEmpty();
+        verify(aiDraftGeneratorService).generateMultimodal(
+                eq("오늘은 날씨가 좋았다"), isNull(), isNull(), eq(WRITTEN_AT),
+                eq("female"), eq("20대"), eq("warm"));
+        verifyNoInteractions(speechToTextService, imageAnalysisService, gcsStorageService);
+    }
+
+    @Test
+    @DisplayName("v2 이미지 입력 시 BLIP 없이 GCS 업로드 URL과 멀티모달 AI 초안 반환")
+    void givenImagesProvided_whenCreateDraftV2_thenUploadAndUseOriginalImages() throws IOException {
+        // given
+        MockMultipartFile image = new MockMultipartFile(
+                "images", "photo.jpg", "image/jpeg", "fake-image".getBytes());
+        DiaryDraftCommand command = DiaryDraftCommand.builder()
+                .userId(1L)
+                .images(List.of(image))
+                .writtenAt(WRITTEN_AT)
+                .build();
+        String blobPath = "uploads/images/uuid_photo.jpg";
+        String signedUrl = "https://storage.googleapis.com/filly-media-bucket/" + blobPath;
+        AiDraftResult aiResult = new AiDraftResult(
+                "사진 속 순간을 떠올리며 하루를 정리했다.",
+                List.of(), 60, List.of(), List.of(), List.of(), List.of(),
+                new AiDraftResult.Patterns("오후", 5, "혼자", false, null, "없음", "보통", "언급없음"),
+                "사진으로 남긴 하루", "실시간"
+        );
+        UserVO mockUser = UserVO.builder().id(1L).oauthProvider("google").oauthId("abc").build();
+        given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+        given(gcsStorageService.upload(image, "uploads/images")).willReturn(blobPath);
+        given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
+        given(aiDraftGeneratorService.generateMultimodal(any(), anyList(), any(), any(), any(), any(), any()))
+                .willReturn(aiResult);
+
+        // when
+        DiaryDraftResponse response = sut.createDraftV2(command);
+
+        // then
+        assertThat(response.mediaUrls()).containsExactly(signedUrl);
+        verify(aiDraftGeneratorService).generateMultimodal(
+                isNull(), eq(List.of(image)), isNull(), eq(WRITTEN_AT), any(), any(), any());
+        verifyNoInteractions(speechToTextService, imageAnalysisService);
+    }
+
+    @Test
+    @DisplayName("v2 이미지는 최대 4장까지만 허용한다")
+    void givenTooManyImages_whenCreateDraftV2_thenThrowIllegalArgumentException() {
+        // given
+        List<MultipartFile> images = List.of(
+                new MockMultipartFile("images", "1.jpg", "image/jpeg", "1".getBytes()),
+                new MockMultipartFile("images", "2.jpg", "image/jpeg", "2".getBytes()),
+                new MockMultipartFile("images", "3.jpg", "image/jpeg", "3".getBytes()),
+                new MockMultipartFile("images", "4.jpg", "image/jpeg", "4".getBytes()),
+                new MockMultipartFile("images", "5.jpg", "image/jpeg", "5".getBytes())
+        );
+        DiaryDraftCommand command = DiaryDraftCommand.builder()
+                .userId(1L)
+                .images(images)
+                .writtenAt(WRITTEN_AT)
+                .build();
+
+        // when & then
+        assertThatThrownBy(() -> sut.createDraftV2(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("최대 4장");
+        verifyNoInteractions(userRepository, gcsStorageService, aiDraftGeneratorService);
     }
 
     @Test

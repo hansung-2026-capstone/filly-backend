@@ -25,9 +25,12 @@ import net.coboogie.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import ws.schild.jave.MultimediaObject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.io.File;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -46,6 +49,14 @@ import java.util.NoSuchElementException;
 @Service
 @RequiredArgsConstructor
 public class DiaryService {
+
+    private static final int MAX_DRAFT_IMAGE_COUNT = 4;
+    private static final long MAX_DRAFT_VOICE_DURATION_MS = 60_000L;
+    private static final List<String> SUPPORTED_DRAFT_IMAGE_TYPES =
+            List.of("image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif");
+    private static final List<String> SUPPORTED_DRAFT_AUDIO_TYPES =
+            List.of("audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/flac",
+                    "audio/ogg", "audio/webm", "audio/mp4", "audio/m4a", "audio/x-m4a", "audio/aac");
 
     private final GcsStorageService gcsStorageService;
     private final AiDraftGeneratorService aiDraftGeneratorService;
@@ -377,6 +388,42 @@ public class DiaryService {
     }
 
     /**
+     * STT/BLIP 전처리 없이 텍스트·이미지·음성 원본을 Gemini 멀티모달 입력으로 전달해 초안을 생성한다.
+     * v1과 동일하게 이미지 URL은 저장 확인 화면에서 사용할 수 있도록 GCS signed URL로 반환한다.
+     */
+    public DiaryDraftResponse createDraftV2(DiaryDraftCommand command) {
+        validateInput(command);
+        validateDraftV2Attachments(command.images(), command.voice());
+        UserVO user = userRepository.findById(command.userId())
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + command.userId()));
+        int imageCount = command.images() == null ? 0 : command.images().size();
+        boolean hasText = command.textContent() != null && !command.textContent().isBlank();
+        boolean hasVoice = command.voice() != null && !command.voice().isEmpty();
+        long startedAt = System.currentTimeMillis();
+        log.info("AI draft v2 start userId={} writtenAt={} hasText={} imageCount={} hasVoice={}",
+                command.userId(), command.writtenAt(), hasText, imageCount, hasVoice);
+
+        List<String> blobPaths = uploadImages(command.images());
+        List<String> mediaUrls = blobPaths.stream()
+                .map(gcsStorageService::generateSignedUrl)
+                .toList();
+
+        AiDraftResult aiResult = aiDraftGeneratorService.generateMultimodal(
+                command.textContent(),
+                command.images(),
+                command.voice(),
+                command.writtenAt(),
+                user.getGender(),
+                user.getAgeGroup(),
+                user.getAiDraftTone()
+        );
+        log.info("AI draft v2 complete userId={} mediaCount={} elapsedMs={}",
+                command.userId(), mediaUrls.size(), System.currentTimeMillis() - startedAt);
+
+        return new DiaryDraftResponse(aiResult.generatedText(), toAiAnalysis(aiResult), mediaUrls);
+    }
+
+    /**
      * Gemini 응답 DTO를 저장 가능한 AI 분석 DTO로 변환한다.
      */
     private DiaryDraftResponse.AiAnalysis toAiAnalysis(AiDraftResult aiResult) {
@@ -399,11 +446,63 @@ public class DiaryService {
      */
     private void validateInput(DiaryDraftCommand command) {
         boolean hasText = command.textContent() != null && !command.textContent().isBlank();
-        boolean hasImages = command.images() != null && !command.images().isEmpty();
-        boolean hasVoice = command.voice() != null;
+        boolean hasImages = command.images() != null
+                && command.images().stream().anyMatch(image -> image != null && !image.isEmpty());
+        boolean hasVoice = command.voice() != null && !command.voice().isEmpty();
 
         if (!hasText && !hasImages && !hasVoice) {
             throw new IllegalArgumentException("텍스트, 이미지, 음성 중 하나 이상 입력해야 합니다.");
+        }
+    }
+
+    private void validateDraftV2Attachments(List<MultipartFile> images, MultipartFile voice) {
+        if (images != null) {
+            List<MultipartFile> nonEmptyImages = images.stream()
+                    .filter(image -> image != null && !image.isEmpty())
+                    .toList();
+            if (nonEmptyImages.size() > MAX_DRAFT_IMAGE_COUNT) {
+                throw new IllegalArgumentException("이미지는 최대 4장까지 첨부할 수 있습니다.");
+            }
+            for (MultipartFile image : nonEmptyImages) {
+                validateContentType(image, SUPPORTED_DRAFT_IMAGE_TYPES, "지원하지 않는 이미지 형식입니다.");
+            }
+        }
+        if (voice != null && !voice.isEmpty()) {
+            validateContentType(voice, SUPPORTED_DRAFT_AUDIO_TYPES, "지원하지 않는 음성 형식입니다.");
+            validateVoiceDuration(voice);
+        }
+    }
+
+    private void validateContentType(MultipartFile file, List<String> supportedTypes, String message) {
+        String contentType = file.getContentType();
+        if (contentType == null || !supportedTypes.contains(contentType.toLowerCase())) {
+            throw new IllegalArgumentException(message + " filename=" + file.getOriginalFilename());
+        }
+    }
+
+    private void validateVoiceDuration(MultipartFile voice) {
+        String filename = voice.getOriginalFilename() != null ? voice.getOriginalFilename() : "voice";
+        String suffix = filename.contains(".") ? filename.substring(filename.lastIndexOf('.')) : ".tmp";
+        File tempFile = null;
+        try {
+            tempFile = File.createTempFile("draft-v2-voice-", suffix);
+            Files.write(tempFile.toPath(), voice.getBytes());
+            long duration = new MultimediaObject(tempFile).getInfo().getDuration();
+            if (duration > MAX_DRAFT_VOICE_DURATION_MS) {
+                throw new IllegalArgumentException("음성 입력은 최대 60초까지 첨부할 수 있습니다.");
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("음성 길이를 확인할 수 없습니다: " + filename, e);
+        } finally {
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile.toPath());
+                } catch (IOException e) {
+                    log.warn("temporary voice file delete failed path={}", tempFile.getAbsolutePath(), e);
+                }
+            }
         }
     }
 
