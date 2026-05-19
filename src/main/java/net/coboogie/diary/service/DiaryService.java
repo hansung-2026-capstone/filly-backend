@@ -24,6 +24,8 @@ import net.coboogie.vo.UserVO;
 import net.coboogie.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import ws.schild.jave.MultimediaObject;
 
@@ -68,6 +70,7 @@ public class DiaryService {
     private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     private final AiDiaryResultRepository aiDiaryResultRepository;
     private final MonthlyStatRepository monthlyStatRepository;
+    private final DiaryAnalysisAsyncService diaryAnalysisAsyncService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -103,9 +106,8 @@ public class DiaryService {
 
         DiaryDraftResponse.AiAnalysis aiAnalysis = command.aiAnalysis();
         if (aiAnalysis == null) {
-            aiAnalysis = generateAnalysis(command, user);
-        }
-        if (aiAnalysis != null) {
+            scheduleAnalysisAfterCommit(saved.getId(), command, user);
+        } else {
             saveEmotionAnalysis(saved, aiAnalysis);
         }
         if (command.generatedText() != null && !command.generatedText().isBlank()) {
@@ -142,24 +144,6 @@ public class DiaryService {
     }
 
     /**
-     * 초안 생성 없이 저장된 일기의 입력값으로 AI 분석 결과만 생성한다.
-     * 사용자가 직접 작성한 내용을 보존하기 위해 생성된 초안 텍스트는 저장하지 않는다.
-     */
-    private DiaryDraftResponse.AiAnalysis generateAnalysis(DiarySaveCommand command, UserVO user) {
-        List<String> imageCaptions = extractCaptions(command.images());
-        AiDraftResult aiResult = aiDraftGeneratorService.generate(
-                command.rawContent(),
-                imageCaptions,
-                null,
-                command.writtenAt(),
-                user.getGender(),
-                user.getAgeGroup(),
-                user.getAiDraftTone()
-        );
-        return toAiAnalysis(aiResult);
-    }
-
-    /**
      * AI 감정 분석 결과를 {@code ai_diary_analysis} 테이블에 저장한다.
      * JSON 직렬화 실패 시 경고 로그를 남기고 저장을 건너뛴다.
      *
@@ -184,6 +168,52 @@ public class DiaryService {
         } catch (JsonProcessingException e) {
             log.warn("감정 분석 직렬화 실패: diaryId={}", diary.getId(), e);
         }
+    }
+
+    private void scheduleAnalysisAfterCommit(Long diaryId, DiarySaveCommand command, UserVO user) {
+        List<DiaryAnalysisAsyncService.AnalysisImage> images = copyAnalysisImages(command.images());
+        Runnable task = () -> diaryAnalysisAsyncService.analyzeAndSaveAsync(
+                diaryId,
+                command.rawContent(),
+                command.writtenAt(),
+                user.getGender(),
+                user.getAgeGroup(),
+                user.getAiDraftTone(),
+                images
+        );
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+            return;
+        }
+        task.run();
+    }
+
+    private List<DiaryAnalysisAsyncService.AnalysisImage> copyAnalysisImages(List<MultipartFile> images) {
+        if (images == null || images.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<DiaryAnalysisAsyncService.AnalysisImage> copies = new ArrayList<>();
+        for (MultipartFile image : images) {
+            if (image == null || image.isEmpty()) {
+                continue;
+            }
+            try {
+                copies.add(new DiaryAnalysisAsyncService.AnalysisImage(
+                        image.getBytes(),
+                        image.getOriginalFilename(),
+                        image.getContentType()
+                ));
+            } catch (IOException e) {
+                log.warn("AI 분석용 이미지 복사 실패 filename={}", image.getOriginalFilename(), e);
+            }
+        }
+        return copies;
     }
 
     /**

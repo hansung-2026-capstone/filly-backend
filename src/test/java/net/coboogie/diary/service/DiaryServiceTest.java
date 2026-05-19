@@ -55,6 +55,7 @@ class DiaryServiceTest {
     @Mock private AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     @Mock private AiDiaryResultRepository aiDiaryResultRepository;
     @Mock private MonthlyStatRepository monthlyStatRepository;
+    @Mock private DiaryAnalysisAsyncService diaryAnalysisAsyncService;
     @Mock private ObjectMapper objectMapper;
 
     @InjectMocks
@@ -309,31 +310,8 @@ class DiaryServiceTest {
                 .writtenAt(WRITTEN_AT)
                 .createdAt(LocalDateTime.now())
                 .build();
-        AiDraftResult aiResult = new AiDraftResult(
-                "오늘 날씨가 맑았던 하루였다.",
-                List.of(new AiDraftResult.EmotionScore("평온", 0.7f)),
-                70,
-                List.of("산책"),
-                List.of("공원"),
-                List.of(),
-                List.of("라이프스타일"),
-                new AiDraftResult.Patterns("오후", 6, "혼자", false, null, "맑음", "좋음", "언급없음"),
-                "맑고 평온한 하루",
-                "담담함"
-        );
-
         given(userRepository.findById(userId)).willReturn(Optional.of(mockUser));
         given(diaryEntryRepository.save(any(DiaryEntryVO.class))).willReturn(savedDiary);
-        given(aiDraftGeneratorService.generate(
-                eq("오늘 날씨가 맑았다."),
-                eq(Collections.emptyList()),
-                isNull(),
-                eq(WRITTEN_AT),
-                eq("none"),
-                eq("none"),
-                eq("none")))
-                .willReturn(aiResult);
-        given(objectMapper.writeValueAsString(any())).willReturn("[]");
 
         // when
         DiaryResponse response = sut.saveDiary(command);
@@ -344,15 +322,16 @@ class DiaryServiceTest {
         assertThat(response.emoji()).isEqualTo("☀️");
         assertThat(response.writtenAt()).isEqualTo(WRITTEN_AT);
         verify(diaryEntryRepository).save(any(DiaryEntryVO.class));
-        verify(aiDraftGeneratorService).generate(
+        verify(diaryAnalysisAsyncService).analyzeAndSaveAsync(
+                eq(10L),
                 eq("오늘 날씨가 맑았다."),
-                eq(Collections.emptyList()),
-                isNull(),
                 eq(WRITTEN_AT),
                 eq("none"),
                 eq("none"),
-                eq("none"));
-        verify(aiEmotionAnalysisRepository).save(any(AiEmotionAnalysisVO.class));
+                eq("none"),
+                eq(Collections.emptyList()));
+        verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any(), any(), any(), any());
+        verify(aiEmotionAnalysisRepository, never()).save(any(AiEmotionAnalysisVO.class));
         verify(aiDiaryResultRepository, never()).save(any());
         verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
     }
@@ -454,7 +433,8 @@ class DiaryServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("rawContent 또는 images");
 
-        verifyNoInteractions(diaryEntryRepository, aiDraftGeneratorService, aiEmotionAnalysisRepository);
+        verifyNoInteractions(diaryEntryRepository, aiDraftGeneratorService,
+                aiEmotionAnalysisRepository, diaryAnalysisAsyncService);
     }
 
     @Test
