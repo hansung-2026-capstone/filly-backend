@@ -120,9 +120,14 @@ public class PersonaService {
 
         Optional<PersonaSnapshotVO> latest = personaSnapshotRepository.findLatestByUserId(userId);
         if (latest.isPresent()) {
-            LocalDateTime nextAllowed = latest.get().getGeneratedAt().plusDays(GENERATION_INTERVAL_DAYS);
+            LocalDateTime generatedAt = latest.get().getGeneratedAt();
+            LocalDateTime nextAllowed = generatedAt.plusDays(GENERATION_INTERVAL_DAYS);
             if (LocalDateTime.now().isBefore(nextAllowed)) {
                 throw new IllegalStateException("페르소나는 7일에 한 번 생성할 수 있습니다.");
+            }
+            boolean hasNewDiary = diaryEntryRepository.existsByUser_IdAndCreatedAtAfter(userId, generatedAt);
+            if (!hasNewDiary) {
+                throw new IllegalStateException("마지막 페르소나 생성 이후 추가된 일기가 없습니다.");
             }
         }
 

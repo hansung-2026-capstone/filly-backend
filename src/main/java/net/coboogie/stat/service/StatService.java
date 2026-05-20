@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
 import net.coboogie.stat.dto.MonthlyStatResponse;
+import net.coboogie.stat.dto.MonthlyStatResponse.HabitDiscovery;
 import net.coboogie.stat.repository.MonthlyStatRepository;
 import net.coboogie.user.repository.UserRepository;
 import net.coboogie.vo.AiEmotionAnalysisVO;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 public class StatService {
 
     private static final int TOP_PEOPLE_LIMIT = 10;
+    private static final int HABIT_DISCOVERY_LIMIT = 8;
 
     private static final TypeReference<List<Map<String, Object>>> OBJ_LIST_TYPE = new TypeReference<>() {};
     private static final TypeReference<Map<String, Integer>> INT_MAP_TYPE = new TypeReference<>() {};
@@ -108,13 +111,15 @@ public class StatService {
         monthlyStatRepository.save(stat);
 
         return new MonthlyStatResponse(recordMonth, diaryCount, totalChars,
-                emotionDistribution, keywordCloud, topPeople, dailyPattern);
+                emotionDistribution, keywordCloud, topPeople, dailyPattern,
+                buildHabitDiscoveries(dailyPattern));
     }
 
     /**
      * {@code MonthlyStatVO}의 JSON 필드를 역직렬화하여 응답 DTO로 변환한다.
      */
     private MonthlyStatResponse toResponse(MonthlyStatVO stat) {
+        Map<String, Map<String, Integer>> dailyPattern = parseJson(stat.getDailyPattern(), PATTERN_MAP_TYPE);
         return new MonthlyStatResponse(
                 stat.getRecordMonth(),
                 stat.getDiaryCount() != null ? stat.getDiaryCount() : 0,
@@ -122,8 +127,70 @@ public class StatService {
                 parseJson(stat.getEmotionDistribution(), INT_MAP_TYPE),
                 normalizeKeywordCloud(parseJson(stat.getKeywordCloud(), INT_MAP_TYPE)),
                 parseJson(stat.getTopPeople(), STR_LIST_TYPE),
-                parseJson(stat.getDailyPattern(), PATTERN_MAP_TYPE)
+                dailyPattern,
+                buildHabitDiscoveries(dailyPattern)
         );
+    }
+
+    /**
+     * raw dailyPattern 중 사용자에게 "몰랐던 습관 발견"으로 보여주기 좋은 후보만 추린다.
+     */
+    private List<HabitDiscovery> buildHabitDiscoveries(Map<String, Map<String, Integer>> dailyPattern) {
+        if (dailyPattern == null || dailyPattern.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<HabitDiscovery> discoveries = new ArrayList<>();
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "personalPatternCandidates"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "personal_pattern_candidates"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "weekdayPattern"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "weekday_pattern"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "mealPattern"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "meal_pattern"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "caffeinePattern"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "caffeine_pattern"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "wakeTime"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "wake_time"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "sleepTime"));
+        discoveries.addAll(collectHabitDiscoveries(dailyPattern, "sleep_time"));
+
+        return discoveries.stream()
+                .sorted((a, b) -> Integer.compare(b.count(), a.count()))
+                .limit(HABIT_DISCOVERY_LIMIT)
+                .toList();
+    }
+
+    private List<HabitDiscovery> collectHabitDiscoveries(
+            Map<String, Map<String, Integer>> dailyPattern,
+            String patternKey
+    ) {
+        Map<String, Integer> values = dailyPattern.get(patternKey);
+        if (values == null || values.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return values.entrySet().stream()
+                .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank())
+                .filter(entry -> entry.getValue() != null && entry.getValue() > 0)
+                .map(entry -> toHabitDiscovery(patternKey, entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    private HabitDiscovery toHabitDiscovery(String patternKey, String pattern, int count) {
+        String category = habitCategory(patternKey);
+        String message = count > 1
+                ? "%s 패턴이 이번 달 %d번 나타났어요.".formatted(pattern, count)
+                : "%s 패턴이 이번 달 처음 신호로 잡혔어요.".formatted(pattern);
+        return new HabitDiscovery(category, patternKey, pattern, count, message);
+    }
+
+    private String habitCategory(String patternKey) {
+        return switch (patternKey) {
+            case "weekdayPattern", "weekday_pattern" -> "요일 습관";
+            case "mealPattern", "meal_pattern" -> "식사 습관";
+            case "caffeinePattern", "caffeine_pattern" -> "카페인 습관";
+            case "wakeTime", "wake_time" -> "기상 습관";
+            case "sleepTime", "sleep_time" -> "수면 습관";
+            default -> "개인 습관";
+        };
     }
 
     /**
