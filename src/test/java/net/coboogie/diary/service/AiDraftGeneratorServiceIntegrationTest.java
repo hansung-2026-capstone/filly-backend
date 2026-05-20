@@ -13,6 +13,8 @@ import org.springframework.ai.vertexai.gemini.VertexAiGeminiChatOptions;
 
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -58,10 +60,13 @@ class AiDraftGeneratorServiceIntegrationTest {
     @Test
     @DisplayName("텍스트 입력 시 Gemini가 일기 초안과 감정 분석을 반환한다")
     void givenTextInput_whenGenerate_thenReturnAiDraftResult() {
+        // given
+        List<MultipartFile> images = List.of();
+
         // when
         AiDraftResult result = sut.generate(
                 "오늘 친구들과 한강에서 치킨을 먹었다. 날씨도 좋고 정말 즐거웠다.",
-                List.of(),
+                images,
                 null,
                 LocalDate.of(2026, 4, 11),
                 "none",
@@ -90,10 +95,14 @@ class AiDraftGeneratorServiceIntegrationTest {
     @Test
     @DisplayName("이미지 캡션과 텍스트를 함께 입력하면 결합된 일기 초안을 반환한다")
     void givenTextAndCaptions_whenGenerate_thenReturnCombinedDraft() {
+        // given
+        MultipartFile mockImage1 = new MockMultipartFile("images", "cafe1.jpg", "image/jpeg", "dummy-image-1".getBytes());
+        MultipartFile mockImage2 = new MockMultipartFile("images", "cafe2.jpg", "image/jpeg", "dummy-image-2".getBytes());
+
         // when
         AiDraftResult result = sut.generate(
                 "오늘 카페에 갔다",
-                List.of("아늑한 카페 내부", "커피 한 잔과 책"),
+                List.of(mockImage1, mockImage2),
                 null,
                 LocalDate.of(2026, 4, 11),
                 "female",

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.coboogie.blip.services.ImageAnalysisService;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
@@ -50,8 +49,6 @@ public class DiaryService {
 
     private final GcsStorageService gcsStorageService;
     private final AiDraftGeneratorService aiDraftGeneratorService;
-    private final SpeechToTextService speechToTextService;
-    private final ImageAnalysisService imageAnalysisService;
     private final UserRepository userRepository;
     private final DiaryEntryRepository diaryEntryRepository;
     private final DiaryMediaRepository diaryMediaRepository;
@@ -136,10 +133,9 @@ public class DiaryService {
      * 사용자가 직접 작성한 내용을 보존하기 위해 생성된 초안 텍스트는 저장하지 않는다.
      */
     private DiaryDraftResponse.AiAnalysis generateAnalysis(DiarySaveCommand command, UserVO user) {
-        List<String> imageCaptions = extractCaptions(command.images());
         AiDraftResult aiResult = aiDraftGeneratorService.generate(
                 command.rawContent(),
-                imageCaptions,
+                command.images(),
                 null,
                 command.writtenAt(),
                 user.getGender(),
@@ -468,22 +464,18 @@ public class DiaryService {
         List<String> mediaUrls = blobPaths.stream()
                 .map(gcsStorageService::generateSignedUrl)
                 .toList();
-        List<String> imageCaptions = extractCaptions(command.images());
-
-        String voiceTranscription = transcribeVoice(command.voice());
 
         AiDraftResult aiResult = aiDraftGeneratorService.generate(
                 command.textContent(),
-                imageCaptions,
-                voiceTranscription,
+                command.images(),
+                command.voice(),
                 command.writtenAt(),
                 user.getGender(),
                 user.getAgeGroup(),
                 user.getAiDraftTone()
         );
-        log.info("AI draft complete userId={} mediaCount={} captionCount={} hasVoiceTranscription={}",
-                command.userId(), mediaUrls.size(), imageCaptions.size(),
-                voiceTranscription != null && !voiceTranscription.isBlank());
+        log.info("AI draft complete userId={} mediaCount={}",
+                command.userId(), mediaUrls.size());
 
         return new DiaryDraftResponse(aiResult.generatedText(), toAiAnalysis(aiResult), mediaUrls);
     }
@@ -517,54 +509,6 @@ public class DiaryService {
         if (!hasText && !hasImages && !hasVoice) {
             throw new IllegalArgumentException("텍스트, 이미지, 음성 중 하나 이상 입력해야 합니다.");
         }
-    }
-
-    /**
-     * 음성 파일이 있으면 Chirp STT로 전사하고 텍스트를 반환한다.
-     * 음성이 없거나 전사 결과가 비어있으면 null을 반환한다.
-     *
-     * @throws UncheckedIOException STT 처리 실패 시
-     */
-    private String transcribeVoice(MultipartFile voice) {
-        if (voice == null || voice.isEmpty()) {
-            return null;
-        }
-        try {
-            String result = speechToTextService.transcribe(voice);
-            if (result.isBlank()) {
-                log.warn("STT 전사 결과가 비어있습니다. filename={}", voice.getOriginalFilename());
-                return null;
-            }
-            log.info("STT 전사 완료: {}", result);
-            return result;
-        } catch (Exception e) {
-            log.error("STT 전사 실패. filename={}", voice.getOriginalFilename(), e);
-            return null;
-        }
-    }
-
-    /**
-     * 이미지 파일 목록을 BLIP으로 분석하여 캡션 목록을 반환한다.
-     * 이미지가 없으면 빈 리스트를 반환한다. 분석 실패한 이미지는 건너뛴다.
-     */
-    private List<String> extractCaptions(List<MultipartFile> images) {
-        if (images == null || images.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<String> captions = new ArrayList<>();
-        for (MultipartFile image : images) {
-            try {
-                String caption = imageAnalysisService.analyzeCaption(image).caption();
-                if (caption != null && !caption.isBlank()) {
-                    captions.add(caption);
-                }
-            } catch (Exception e) {
-                // BLIP 서버 미실행 등 분석 실패 시 해당 이미지 건너뜀
-                log.warn("BLIP caption extraction skipped filename={} reason={}",
-                        image.getOriginalFilename(), e.getMessage(), e);
-            }
-        }
-        return captions;
     }
 
     /**
