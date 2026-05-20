@@ -18,6 +18,7 @@ import java.util.Map;
  * @param personaSummary    최신 페르소나 설명
  */
 public record RecommendationProfile(
+        int recommendationPromptVersion,
         String sourcePeriod,
         Map<String, Integer> mainCategoryFreq,
         Map<String, Integer> subCategoryFreq,
@@ -29,6 +30,7 @@ public record RecommendationProfile(
         String personaTitle,
         String personaSummary
 ) {
+    public static final int CURRENT_RECOMMENDATION_PROMPT_VERSION = 4;
 
     /**
      * 추천 프롬프트에 전달할 간결한 요약 문자열을 만든다.
@@ -44,6 +46,7 @@ public record RecommendationProfile(
                 평균 행복 지수: %d
                 주요 활동: %s
                 주요 장소: %s
+                우선 반영할 개인 습관 후보: %s
                 일상 패턴: %s
                 페르소나 제목: %s
                 페르소나 설명: %s
@@ -55,6 +58,7 @@ public record RecommendationProfile(
                 avgHappinessIndex,
                 topEntries(activityFreq, 8),
                 topEntries(placeFreq, 8),
+                summarizePersonalHabitCandidates(patternFreq),
                 summarizePatterns(patternFreq),
                 valueOrNone(personaTitle),
                 valueOrNone(personaSummary)
@@ -81,6 +85,31 @@ public record RecommendationProfile(
                 .map(e -> e.getKey() + "=" + topEntries(e.getValue(), 3))
                 .toList();
         return String.join(" / ", summaries);
+    }
+
+    private static String summarizePersonalHabitCandidates(Map<String, Map<String, Integer>> patterns) {
+        if (patterns == null || patterns.isEmpty()) {
+            return "없음";
+        }
+        List<String> priorityKeys = List.of(
+                "personalPatternCandidates",
+                "personal_pattern_candidates",
+                "weekdayPattern",
+                "weekday_pattern",
+                "mealPattern",
+                "meal_pattern",
+                "caffeinePattern",
+                "caffeine_pattern",
+                "wakeTime",
+                "wake_time",
+                "sleepTime",
+                "sleep_time"
+        );
+        return priorityKeys.stream()
+                .filter(patterns::containsKey)
+                .map(key -> key + "=" + topEntries(patterns.get(key), 3))
+                .reduce((a, b) -> a + " / " + b)
+                .orElse("없음");
     }
 
     private static String valueOrNone(String value) {
