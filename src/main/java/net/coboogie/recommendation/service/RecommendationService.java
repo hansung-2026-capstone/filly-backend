@@ -21,6 +21,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +52,7 @@ public class RecommendationService {
     private final RecommendationRepository recommendationRepository;
     private final RecommendationProfileBuilder recommendationProfileBuilder;
     private final RecommendationCategorySelector recommendationCategorySelector;
+    private final RecommendationGenerationAsyncService recommendationGenerationAsyncService;
     private final ChatClient recommendationChatClient;
     private final ObjectMapper objectMapper;
     private final ObjectMapper aiObjectMapper;
@@ -63,6 +66,7 @@ public class RecommendationService {
             RecommendationRepository recommendationRepository,
             RecommendationProfileBuilder recommendationProfileBuilder,
             RecommendationCategorySelector recommendationCategorySelector,
+            RecommendationGenerationAsyncService recommendationGenerationAsyncService,
             @Qualifier("recommendationChatClient") ChatClient recommendationChatClient,
             ObjectMapper objectMapper,
             @Qualifier("aiObjectMapper") ObjectMapper aiObjectMapper) {
@@ -71,6 +75,7 @@ public class RecommendationService {
         this.recommendationRepository = recommendationRepository;
         this.recommendationProfileBuilder = recommendationProfileBuilder;
         this.recommendationCategorySelector = recommendationCategorySelector;
+        this.recommendationGenerationAsyncService = recommendationGenerationAsyncService;
         this.recommendationChatClient = recommendationChatClient;
         this.objectMapper = objectMapper;
         this.aiObjectMapper = aiObjectMapper;
@@ -86,18 +91,22 @@ public class RecommendationService {
     public RecommendationDrawResponse draw(Long userId) {
         UserVO user = findUser(userId);
         RecommendationDrawVO reusableDraw = recommendationDrawRepository
-                .findTopByUser_IdAndStatusOrderByUpdatedAtDesc(userId, RecommendationDrawVO.Status.ACTIVE)
+                .findTopByUserIdAndStatusInOrderByUpdatedAtDesc(
+                        userId,
+                        List.of(RecommendationDrawVO.Status.PENDING, RecommendationDrawVO.Status.ACTIVE))
                 .orElse(null);
-        if (reusableDraw != null && isCurrentPromptVersion(reusableDraw)) {
+        if (reusableDraw != null && reusableDraw.getStatus() == RecommendationDrawVO.Status.PENDING
+                && isCurrentPromptVersion(reusableDraw)) {
+            return toDrawResponse(reusableDraw, List.of());
+        }
+        if (reusableDraw != null && reusableDraw.getStatus() == RecommendationDrawVO.Status.ACTIVE
+                && isCurrentPromptVersion(reusableDraw)) {
             List<RecommendationVO> reusableCards = findReusableCards(reusableDraw.getId());
             if (!reusableCards.isEmpty()) {
-                return new RecommendationDrawResponse(
-                        reusableDraw.getId(),
-                        reusableDraw.getCurrentRound(),
-                        toBackCards(reusableCards)
-                );
+                return toDrawResponse(reusableDraw, reusableCards);
             }
-        } else if (reusableDraw != null) {
+        }
+        if (reusableDraw != null) {
             reusableDraw.setStatus(RecommendationDrawVO.Status.COMPLETED);
         }
 
@@ -109,20 +118,48 @@ public class RecommendationService {
                 .currentRound(1)
                 .sourcePeriod(profile.sourcePeriod())
                 .profileSnapshot(profileSnapshot)
-                .status(RecommendationDrawVO.Status.ACTIVE)
+                .status(RecommendationDrawVO.Status.PENDING)
                 .build());
 
-        List<String> categories = recommendationCategorySelector.selectInitialMainCategories(profile);
-        List<AiRecommendationCard> generatedCards = generateCards(profile, categories);
-        List<RecommendationVO> cards = saveCards(draw, user, profile, categories, generatedCards);
+        startInitialGenerationAfterCommit(draw.getId(), userId, profile);
 
-        return new RecommendationDrawResponse(draw.getId(), draw.getCurrentRound(), toBackCards(cards));
+        return toDrawResponse(draw, List.of());
+    }
+
+    /**
+     * 추천 뽑기 세션 상태와 카드 목록을 조회한다.
+     *
+     * @param userId 사용자 ID
+     * @param drawId 추천 뽑기 세션 ID
+     * @return 추천 뽑기 응답
+     */
+    @Transactional(readOnly = true)
+    public RecommendationDrawResponse getDraw(Long userId, Long drawId) {
+        RecommendationDrawVO draw = recommendationDrawRepository.findByIdAndUserId(drawId, userId)
+                .orElseThrow(() -> new NoSuchElementException("추천 뽑기 세션을 찾을 수 없습니다: " + drawId));
+        List<RecommendationVO> cards = draw.getStatus() == RecommendationDrawVO.Status.ACTIVE
+                ? findReusableCards(draw.getId())
+                : List.of();
+        return toDrawResponse(draw, cards);
     }
 
     private boolean isCurrentPromptVersion(RecommendationDrawVO draw) {
         RecommendationProfile profile = parseProfile(draw.getProfileSnapshot());
         return profile.recommendationPromptVersion()
                 == RecommendationProfile.CURRENT_RECOMMENDATION_PROMPT_VERSION;
+    }
+
+    private void startInitialGenerationAfterCommit(Long drawId, Long userId, RecommendationProfile profile) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            recommendationGenerationAsyncService.generateInitialCards(drawId, userId, profile);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                recommendationGenerationAsyncService.generateInitialCards(drawId, userId, profile);
+            }
+        });
     }
 
     /**
@@ -227,7 +264,7 @@ public class RecommendationService {
     }
 
     private RecommendationDrawVO findDrawForUpdate(Long userId, Long drawId) {
-        return recommendationDrawRepository.findByIdAndUser_Id(drawId, userId)
+        return recommendationDrawRepository.findLockedByIdAndUserId(drawId, userId)
                 .orElseThrow(() -> new NoSuchElementException("추천 뽑기 세션을 찾을 수 없습니다: " + drawId));
     }
 
@@ -236,20 +273,6 @@ public class RecommendationService {
                 drawId,
                 List.of(RecommendationVO.Status.ACTIVE, RecommendationVO.Status.REVEALED)
         );
-    }
-
-    private List<RecommendationVO> saveCards(RecommendationDrawVO draw, UserVO user, RecommendationProfile profile,
-                                             List<String> categories, List<AiRecommendationCard> generatedCards) {
-        List<RecommendationVO> cards = new ArrayList<>();
-        for (int i = 0; i < INITIAL_CARD_COUNT; i++) {
-            String category = categories.get(i);
-            AiRecommendationCard generatedCard = i < generatedCards.size()
-                    ? generatedCards.get(i)
-                    : fallbackCard(category, recommendationCategorySelector.selectSubCategory(profile, category));
-            cards.add(saveCard(draw, user, profile, generatedCard, category, i + 1, 1,
-                    RecommendationVO.GenerationType.INITIAL));
-        }
-        return cards;
     }
 
     private RecommendationVO saveCard(RecommendationDrawVO draw, UserVO user, RecommendationProfile profile,
@@ -283,26 +306,6 @@ public class RecommendationService {
                 .status(RecommendationVO.Status.ACTIVE)
                 .generationType(generationType)
                 .build());
-    }
-
-    private List<AiRecommendationCard> generateCards(RecommendationProfile profile, List<String> categories) {
-        String userMessage = """
-                mode: INITIAL
-                card_count: 3
-                categories: %s
-
-                recommendation_requirements:
-                - 각 카드 reason에는 user_profile의 "우선 반영할 개인 습관 후보" 또는 "일상 패턴" 중 최소 1개를 구체적으로 언급하세요.
-                - 개인 습관 후보가 "없음"이 아니면, IAB 카테고리보다 개인 습관 후보를 먼저 근거로 삼으세요.
-                - title은 장르명이 아니라 실제 대상 이름이어야 합니다. 예: "음악" 금지, "검정치마 - 기다린 만큼, 더" 허용.
-                - description은 실행 시간대나 상황을 포함해야 합니다.
-                - 같은 추천 대상이나 같은 문장 구조를 반복하지 마세요.
-
-                user_profile:
-                %s
-                """.formatted(String.join(", ", categories), profile.toPromptSummary());
-        AiRecommendationResponse response = callGemini(userMessage);
-        return response.cards() == null ? List.of() : response.cards();
     }
 
     private AiRecommendationCard generateCard(RecommendationProfile profile, String category) {
@@ -426,6 +429,11 @@ public class RecommendationService {
                         Boolean.TRUE.equals(card.getRevealed())
                 ))
                 .toList();
+    }
+
+    private RecommendationDrawResponse toDrawResponse(RecommendationDrawVO draw, List<RecommendationVO> cards) {
+        int round = draw.getCurrentRound() == null ? 1 : draw.getCurrentRound();
+        return new RecommendationDrawResponse(draw.getId(), round, draw.getStatus(), toBackCards(cards));
     }
 
     private RecommendationContent parseContent(String contentRef) {
