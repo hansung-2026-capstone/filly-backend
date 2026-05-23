@@ -44,4 +44,12 @@ public interface ArchiveDiaryRepository extends JpaRepository<ArchiveDiaryVO, Lo
      * @return 삭제된 연결 수
      */
     long deleteByFolder_Id(Long folderId);
+
+    /**
+     * 일기 삭제 전에 해당 일기의 폴더 연결 정보를 먼저 삭제한다.
+     *
+     * @param diaryId 삭제할 일기 ID
+     * @return 삭제된 연결 수
+     */
+    long deleteByDiaryId(Long diaryId);
 }

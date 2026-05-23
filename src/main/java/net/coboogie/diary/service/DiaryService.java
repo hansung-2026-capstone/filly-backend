@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.coboogie.archive.repository.ArchiveDiaryRepository;
+import net.coboogie.archive.repository.ArchiveEntryRepository;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
@@ -68,6 +70,8 @@ public class DiaryService {
     private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     private final AiDiaryResultRepository aiDiaryResultRepository;
     private final MonthlyStatRepository monthlyStatRepository;
+    private final ArchiveDiaryRepository archiveDiaryRepository;
+    private final ArchiveEntryRepository archiveEntryRepository;
     private final DiaryAnalysisAsyncService diaryAnalysisAsyncService;
     private final ObjectMapper objectMapper;
 
@@ -454,8 +458,16 @@ public class DiaryService {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
         invalidateMonthlyStat(userId, diary.getWrittenAt());
+        deleteDiaryReferences(diaryId);
         deleteMediaBlobs(diary);
         diaryEntryRepository.delete(diary);
+    }
+
+    private void deleteDiaryReferences(Long diaryId) {
+        aiEmotionAnalysisRepository.deleteByDiaryId(diaryId);
+        aiDiaryResultRepository.deleteByDiaryId(diaryId);
+        archiveDiaryRepository.deleteByDiaryId(diaryId);
+        archiveEntryRepository.deleteByDiaryId(diaryId);
     }
 
     private void deleteMediaBlobs(DiaryEntryVO diary) {

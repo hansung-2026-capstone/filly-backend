@@ -2,6 +2,8 @@ package net.coboogie.diary.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import net.coboogie.archive.repository.ArchiveDiaryRepository;
+import net.coboogie.archive.repository.ArchiveEntryRepository;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
@@ -53,6 +55,8 @@ class DiaryServiceTest {
     @Mock private AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     @Mock private AiDiaryResultRepository aiDiaryResultRepository;
     @Mock private MonthlyStatRepository monthlyStatRepository;
+    @Mock private ArchiveDiaryRepository archiveDiaryRepository;
+    @Mock private ArchiveEntryRepository archiveEntryRepository;
     @Mock private DiaryAnalysisAsyncService diaryAnalysisAsyncService;
     @Mock private ObjectMapper objectMapper;
 
@@ -804,6 +808,10 @@ class DiaryServiceTest {
         sut.deleteDiary(diaryId, userId);
 
         // then
+        verify(aiEmotionAnalysisRepository).deleteByDiaryId(diaryId);
+        verify(aiDiaryResultRepository).deleteByDiaryId(diaryId);
+        verify(archiveDiaryRepository).deleteByDiaryId(diaryId);
+        verify(archiveEntryRepository).deleteByDiaryId(diaryId);
         verify(diaryEntryRepository).delete(diary);
         verify(gcsStorageService).delete("uploads/images/photo.jpg");
         verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
