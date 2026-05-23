@@ -31,7 +31,9 @@ import java.time.LocalDateTime;
 public class RecommendationDrawVO {
 
     public enum Status {
+        PENDING,
         ACTIVE,
+        FAILED,
         COMPLETED
     }
 

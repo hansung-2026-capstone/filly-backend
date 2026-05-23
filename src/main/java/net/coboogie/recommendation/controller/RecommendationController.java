@@ -52,6 +52,27 @@ public class RecommendationController {
     }
 
     /**
+     * 추천 뽑기 세션 상태와 카드 목록을 조회한다.
+     *
+     * @param userId JWT 인증 사용자 ID
+     * @param drawId 추천 뽑기 세션 ID
+     * @return 추천 뽑기 상태 응답
+     */
+    @GetMapping("/draws/{drawId}")
+    @Operation(summary = "추천 뽑기 상태 조회", description = "추천 카드 생성 상태를 조회하고 완료 시 카드 뒷면 목록을 반환합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "추천 뽑기 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "추천 뽑기 없음")
+    })
+    public ResponseEntity<ApiResponse<RecommendationDrawResponse>> getDraw(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long drawId
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(recommendationService.getDraw(userId, drawId)));
+    }
+
+    /**
      * 선택한 추천 카드를 공개한다.
      *
      * @param userId JWT 인증 사용자 ID
