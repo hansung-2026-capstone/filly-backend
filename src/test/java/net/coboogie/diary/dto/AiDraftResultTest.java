@@ -21,7 +21,7 @@ class AiDraftResultTest {
         assertThat(result.patterns().spendingCategory()).isEqualTo("카페");
         assertThat(result.patterns().caffeinePattern()).isEqualTo("오후 카페에서 커피");
         assertThat(result.patterns().personalPatternCandidates())
-                .containsExactly("오후에 카페에서 커피를 마시는 신호");
+                .containsExactly("오후에 카페에서 커피를 마심");
     }
 
     @Test
@@ -34,7 +34,7 @@ class AiDraftResultTest {
         assertThat(result.patterns().spendingCategory()).isEqualTo("카페");
         assertThat(result.patterns().caffeinePattern()).isEqualTo("오후 카페에서 커피");
         assertThat(result.patterns().personalPatternCandidates())
-                .containsExactly("오후에 카페에서 커피를 마시는 신호");
+                .containsExactly("오후에 카페에서 커피를 마심");
     }
 
     private String snakeCaseJson() {
@@ -61,7 +61,7 @@ class AiDraftResultTest {
                     "meal_pattern": null,
                     "caffeine_pattern": "오후 카페에서 커피",
                     "weekday_pattern": null,
-                    "personal_pattern_candidates": ["오후에 카페에서 커피를 마시는 신호"]
+                    "personal_pattern_candidates": ["오후에 카페에서 커피를 마심"]
                   },
                   "moodSummary": "카페에서 보낸 날",
                   "tone": "회고적"
@@ -93,7 +93,7 @@ class AiDraftResultTest {
                     "mealPattern": null,
                     "caffeinePattern": "오후 카페에서 커피",
                     "weekdayPattern": null,
-                    "personalPatternCandidates": ["오후에 카페에서 커피를 마시는 신호"]
+                    "personalPatternCandidates": ["오후에 카페에서 커피를 마심"]
                   },
                   "moodSummary": "카페에서 보낸 날",
                   "tone": "회고적"

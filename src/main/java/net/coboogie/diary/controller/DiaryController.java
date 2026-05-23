@@ -321,4 +321,95 @@ public class DiaryController {
 		diaryService.deleteDiary(id, userId);
 		return ResponseEntity.ok(ApiResponse.ok());
 	}
+
+	/**
+	 * 일기 이미지 추가 API.
+	 * <p>
+	 * 기존 일기에 이미지 파일을 추가한다. 본인 소유의 일기만 수정 가능하다.
+	 *
+	 * @param userId JWT에서 추출한 인증 사용자 ID
+	 * @param id     수정할 일기 ID
+	 * @param images 추가할 이미지 파일 목록
+	 * @return 수정된 일기 정보
+	 */
+	@PostMapping(value = "/{id}/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@Operation(
+			summary = "일기 이미지 추가",
+			description = "기존 일기에 이미지 파일을 추가합니다. 본인 소유의 일기만 수정 가능합니다."
+	)
+	@ApiResponses({
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "추가 성공"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미지 없음"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 없음")
+	})
+	public ResponseEntity<ApiResponse<DiaryResponse>> addDiaryMedia(
+			@AuthenticationPrincipal Long userId,
+			@PathVariable Long id,
+			@RequestPart List<MultipartFile> images
+	) {
+		DiaryResponse response = diaryService.addDiaryMedia(id, userId, images);
+		return ResponseEntity.ok(ApiResponse.ok(response));
+	}
+
+	/**
+	 * 일기 이미지 교체 API.
+	 * <p>
+	 * 기존 일기의 특정 이미지 파일을 새 파일로 교체한다. 본인 소유의 일기만 수정 가능하다.
+	 *
+	 * @param userId  JWT에서 추출한 인증 사용자 ID
+	 * @param id      수정할 일기 ID
+	 * @param mediaId 교체할 미디어 ID
+	 * @param image   새 이미지 파일
+	 * @return 수정된 일기 정보
+	 */
+	@PutMapping(value = "/{id}/media/{mediaId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@Operation(
+			summary = "일기 이미지 교체",
+			description = "기존 일기의 특정 이미지 파일을 새 파일로 교체합니다. 본인 소유의 일기만 수정 가능합니다."
+	)
+	@ApiResponses({
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "교체 성공"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미지 없음"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 또는 미디어 없음")
+	})
+	public ResponseEntity<ApiResponse<DiaryResponse>> replaceDiaryMedia(
+			@AuthenticationPrincipal Long userId,
+			@PathVariable Long id,
+			@PathVariable Long mediaId,
+			@RequestPart MultipartFile image
+	) {
+		DiaryResponse response = diaryService.replaceDiaryMedia(id, userId, mediaId, image);
+		return ResponseEntity.ok(ApiResponse.ok(response));
+	}
+
+	/**
+	 * 일기 이미지 삭제 API.
+	 * <p>
+	 * 기존 일기의 특정 이미지 파일을 삭제한다. 본인 소유의 일기만 수정 가능하다.
+	 *
+	 * @param userId  JWT에서 추출한 인증 사용자 ID
+	 * @param id      수정할 일기 ID
+	 * @param mediaId 삭제할 미디어 ID
+	 * @return 수정된 일기 정보
+	 */
+	@DeleteMapping("/{id}/media/{mediaId}")
+	@Operation(
+			summary = "일기 이미지 삭제",
+			description = "기존 일기의 특정 이미지 파일을 삭제합니다. 본인 소유의 일기만 수정 가능합니다."
+	)
+	@ApiResponses({
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일기 또는 미디어 없음")
+	})
+	public ResponseEntity<ApiResponse<DiaryResponse>> deleteDiaryMedia(
+			@AuthenticationPrincipal Long userId,
+			@PathVariable Long id,
+			@PathVariable Long mediaId
+	) {
+		DiaryResponse response = diaryService.deleteDiaryMedia(id, userId, mediaId);
+		return ResponseEntity.ok(ApiResponse.ok(response));
+	}
 }

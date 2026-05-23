@@ -48,4 +48,13 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntryVO, Long> 
      * @return 해당 기간의 일기 수
      */
     int countByUser_IdAndWrittenAtBetween(Long userId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * 특정 사용자에게 지정한 일시 이후에 생성(등록)된 일기가 존재하는지 여부를 반환한다.
+     *
+     * @param userId    조회할 사용자 ID
+     * @param createdAt 기준 생성 일시
+     * @return 존재 여부
+     */
+    boolean existsByUser_IdAndCreatedAtAfter(Long userId, java.time.LocalDateTime createdAt);
 }

@@ -22,6 +22,7 @@ import java.util.function.UnaryOperator;
  * @param createdAt   최초 생성 시각
  * @param updatedAt   마지막 수정 시각 (없으면 null)
  * @param mediaUrls   첨부 미디어 GCS URL 목록 (없으면 빈 리스트)
+ * @param media       첨부 미디어 상세 목록 (없으면 빈 리스트)
  */
 public record DiaryResponse(
         Long id,
@@ -31,8 +32,22 @@ public record DiaryResponse(
         LocalDate writtenAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        List<String> mediaUrls
+        List<String> mediaUrls,
+        List<DiaryMediaResponse> media
 ) {
+    public DiaryResponse(
+            Long id,
+            String rawContent,
+            String emoji,
+            Integer starRating,
+            LocalDate writtenAt,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            List<String> mediaUrls
+    ) {
+        this(id, rawContent, emoji, starRating, writtenAt, createdAt, updatedAt, mediaUrls, Collections.emptyList());
+    }
+
     /**
      * {@link DiaryEntryVO} 엔티티를 응답 DTO로 변환한다.
      * {@code urlTransformer}를 통해 각 미디어의 blob 경로를 클라이언트용 서명 URL로 변환한다.
@@ -42,10 +57,19 @@ public record DiaryResponse(
      * @return 변환된 응답 DTO
      */
     public static DiaryResponse from(DiaryEntryVO diary, UnaryOperator<String> urlTransformer) {
-        List<String> mediaUrls = diary.getMedia() == null ? Collections.emptyList()
+        List<DiaryMediaResponse> media = diary.getMedia() == null ? Collections.emptyList()
                 : diary.getMedia().stream()
-                        .map(m -> urlTransformer.apply(m.getGcsUrl()))
+                        .map(m -> new DiaryMediaResponse(
+                                m.getId(),
+                                m.getType().name(),
+                                urlTransformer.apply(m.getGcsUrl()),
+                                m.getFileSize(),
+                                m.getCreatedAt()
+                        ))
                         .toList();
+        List<String> mediaUrls = media.stream()
+                .map(DiaryMediaResponse::url)
+                .toList();
 
         return new DiaryResponse(
                 diary.getId(),
@@ -55,7 +79,8 @@ public record DiaryResponse(
                 diary.getWrittenAt(),
                 diary.getCreatedAt(),
                 diary.getUpdatedAt(),
-                mediaUrls
+                mediaUrls,
+                media
         );
     }
 }

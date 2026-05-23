@@ -70,6 +70,7 @@ public class RecommendationProfileBuilder {
         int avgHappiness = acc.happinessCount() == 0 ? 0 : acc.happinessSum() / acc.happinessCount();
 
         return new RecommendationProfile(
+                RecommendationProfile.CURRENT_RECOMMENDATION_PROMPT_VERSION,
                 sourcePeriod,
                 sortByValue(acc.mainCategoryFreq()),
                 sortByValue(acc.subCategoryFreq()),

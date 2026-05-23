@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.coboogie.blip.services.ImageAnalysisService;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
@@ -21,7 +20,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -34,7 +32,6 @@ import java.util.List;
 public class DiaryAnalysisAsyncService {
 
     private final AiDraftGeneratorService aiDraftGeneratorService;
-    private final ImageAnalysisService imageAnalysisService;
     private final DiaryEntryRepository diaryEntryRepository;
     private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
     @Qualifier("aiObjectMapper")
@@ -52,10 +49,9 @@ public class DiaryAnalysisAsyncService {
         try {
             DiaryEntryVO diary = diaryEntryRepository.findById(diaryId)
                     .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다: " + diaryId));
-            List<String> imageCaptions = extractCaptions(images);
             AiDraftResult aiResult = aiDraftGeneratorService.generate(
                     rawContent,
-                    imageCaptions,
+                    toMultipartFiles(images),
                     null,
                     writtenAt,
                     gender,
@@ -70,23 +66,15 @@ public class DiaryAnalysisAsyncService {
         }
     }
 
-    private List<String> extractCaptions(List<AnalysisImage> images) {
+    private List<MultipartFile> toMultipartFiles(List<AnalysisImage> images) {
         if (images == null || images.isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> captions = new ArrayList<>();
-        for (AnalysisImage image : images) {
-            try {
-                String caption = imageAnalysisService.analyzeCaption(new ByteArrayMultipartFile(image)).caption();
-                if (caption != null && !caption.isBlank()) {
-                    captions.add(caption);
-                }
-            } catch (Exception e) {
-                log.warn("BLIP caption extraction skipped filename={} reason={}",
-                        image.filename(), e.getMessage(), e);
-            }
-        }
-        return captions;
+        return images.stream()
+                .filter(image -> image != null && image.bytes() != null && image.bytes().length > 0)
+                .map(ByteArrayMultipartFile::new)
+                .map(MultipartFile.class::cast)
+                .toList();
     }
 
     private DiaryDraftResponse.AiAnalysis toAiAnalysis(AiDraftResult aiResult) {

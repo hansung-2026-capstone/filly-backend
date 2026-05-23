@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.coboogie.blip.services.ImageAnalysisService;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftCommand;
 import net.coboogie.diary.dto.DiaryDraftResponse;
@@ -40,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
@@ -62,8 +62,6 @@ public class DiaryService {
 
     private final GcsStorageService gcsStorageService;
     private final AiDraftGeneratorService aiDraftGeneratorService;
-    private final SpeechToTextService speechToTextService;
-    private final ImageAnalysisService imageAnalysisService;
     private final UserRepository userRepository;
     private final DiaryEntryRepository diaryEntryRepository;
     private final DiaryMediaRepository diaryMediaRepository;
@@ -231,6 +229,9 @@ public class DiaryService {
         }
         List<DiaryMediaVO> result = new ArrayList<>();
         for (MultipartFile image : images) {
+            if (image == null || image.isEmpty()) {
+                continue;
+            }
             try {
                 String url = gcsStorageService.upload(image, "uploads/images");
                 DiaryMediaVO media = DiaryMediaVO.builder()
@@ -245,6 +246,103 @@ public class DiaryService {
             }
         }
         return result;
+    }
+
+    /**
+     * 기존 일기에 이미지 파일을 추가한다.
+     *
+     * @param diaryId 추가 대상 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @param images  추가할 이미지 파일 목록
+     * @return 파일 추가 후 일기 응답 DTO
+     */
+    @Transactional
+    public DiaryResponse addDiaryMedia(Long diaryId, Long userId, List<MultipartFile> images) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        validateImages(images);
+
+        List<DiaryMediaVO> addedMedia = saveMediaFiles(diary, images);
+        if (diary.getMedia() == null) {
+            diary.setMedia(new ArrayList<>());
+        }
+        diary.getMedia().addAll(addedMedia);
+        diary.setUpdatedAt(LocalDateTime.now());
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
+
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
+    }
+
+    /**
+     * 기존 일기의 특정 이미지 파일을 새 파일로 교체한다.
+     *
+     * @param diaryId  수정 대상 일기 ID
+     * @param userId   JWT 인증 사용자 ID
+     * @param mediaId  교체 대상 미디어 ID
+     * @param image    새 이미지 파일
+     * @return 파일 교체 후 일기 응답 DTO
+     */
+    @Transactional
+    public DiaryResponse replaceDiaryMedia(Long diaryId, Long userId, Long mediaId, MultipartFile image) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        DiaryMediaVO media = diaryMediaRepository.findByIdAndDiary_IdAndDiary_User_Id(mediaId, diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("미디어를 찾을 수 없습니다: " + mediaId));
+        validateImage(image);
+
+        String oldBlobName = media.getGcsUrl();
+        try {
+            String newBlobName = gcsStorageService.upload(image, "uploads/images");
+            media.setGcsUrl(newBlobName);
+            media.setFileSize((int) image.getSize());
+            media.setType(DiaryMediaVO.Type.IMAGE);
+            diary.setUpdatedAt(LocalDateTime.now());
+            gcsStorageService.delete(oldBlobName);
+        } catch (IOException e) {
+            throw new UncheckedIOException("이미지 업로드 실패: " + image.getOriginalFilename(), e);
+        }
+
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
+    }
+
+    /**
+     * 기존 일기의 특정 이미지 파일을 삭제한다.
+     *
+     * @param diaryId 삭제 대상 일기 ID
+     * @param userId  JWT 인증 사용자 ID
+     * @param mediaId 삭제 대상 미디어 ID
+     * @return 파일 삭제 후 일기 응답 DTO
+     */
+    @Transactional
+    public DiaryResponse deleteDiaryMedia(Long diaryId, Long userId, Long mediaId) {
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
+        DiaryMediaVO media = diaryMediaRepository.findByIdAndDiary_IdAndDiary_User_Id(mediaId, diaryId, userId)
+                .orElseThrow(() -> new NoSuchElementException("미디어를 찾을 수 없습니다: " + mediaId));
+
+        String blobName = media.getGcsUrl();
+        if (diary.getMedia() != null) {
+            diary.getMedia().removeIf(item -> Objects.equals(item.getId(), mediaId));
+        }
+        diaryMediaRepository.delete(media);
+        gcsStorageService.delete(blobName);
+        diary.setUpdatedAt(LocalDateTime.now());
+        invalidateMonthlyStat(userId, diary.getWrittenAt());
+
+        return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
+    }
+
+    private void validateImages(List<MultipartFile> images) {
+        if (images == null || images.stream().noneMatch(image -> image != null && !image.isEmpty())) {
+            throw new IllegalArgumentException("images는 하나 이상 필요합니다.");
+        }
+    }
+
+    private void validateImage(MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            throw new IllegalArgumentException("image는 필수입니다.");
+        }
     }
 
     /**
@@ -356,7 +454,18 @@ public class DiaryService {
         DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
         invalidateMonthlyStat(userId, diary.getWrittenAt());
+        deleteMediaBlobs(diary);
         diaryEntryRepository.delete(diary);
+    }
+
+    private void deleteMediaBlobs(DiaryEntryVO diary) {
+        if (diary.getMedia() == null || diary.getMedia().isEmpty()) {
+            return;
+        }
+        diary.getMedia().stream()
+                .map(DiaryMediaVO::getGcsUrl)
+                .filter(Objects::nonNull)
+                .forEach(gcsStorageService::delete);
     }
 
     /**
@@ -397,22 +506,18 @@ public class DiaryService {
         List<String> mediaUrls = blobPaths.stream()
                 .map(gcsStorageService::generateSignedUrl)
                 .toList();
-        List<String> imageCaptions = extractCaptions(command.images());
-
-        String voiceTranscription = transcribeVoice(command.voice());
 
         AiDraftResult aiResult = aiDraftGeneratorService.generate(
                 command.textContent(),
-                imageCaptions,
-                voiceTranscription,
+                command.images(),
+                command.voice(),
                 command.writtenAt(),
                 user.getGender(),
                 user.getAgeGroup(),
                 user.getAiDraftTone()
         );
-        log.info("AI draft complete userId={} mediaCount={} captionCount={} hasVoiceTranscription={}",
-                command.userId(), mediaUrls.size(), imageCaptions.size(),
-                voiceTranscription != null && !voiceTranscription.isBlank());
+        log.info("AI draft complete userId={} mediaCount={}",
+                command.userId(), mediaUrls.size());
 
         return new DiaryDraftResponse(aiResult.generatedText(), toAiAnalysis(aiResult), mediaUrls);
     }
@@ -534,54 +639,6 @@ public class DiaryService {
                 }
             }
         }
-    }
-
-    /**
-     * 음성 파일이 있으면 Chirp STT로 전사하고 텍스트를 반환한다.
-     * 음성이 없거나 전사 결과가 비어있으면 null을 반환한다.
-     *
-     * @throws UncheckedIOException STT 처리 실패 시
-     */
-    private String transcribeVoice(MultipartFile voice) {
-        if (voice == null || voice.isEmpty()) {
-            return null;
-        }
-        try {
-            String result = speechToTextService.transcribe(voice);
-            if (result.isBlank()) {
-                log.warn("STT 전사 결과가 비어있습니다. filename={}", voice.getOriginalFilename());
-                return null;
-            }
-            log.info("STT 전사 완료: {}", result);
-            return result;
-        } catch (Exception e) {
-            log.error("STT 전사 실패. filename={}", voice.getOriginalFilename(), e);
-            return null;
-        }
-    }
-
-    /**
-     * 이미지 파일 목록을 BLIP으로 분석하여 캡션 목록을 반환한다.
-     * 이미지가 없으면 빈 리스트를 반환한다. 분석 실패한 이미지는 건너뛴다.
-     */
-    private List<String> extractCaptions(List<MultipartFile> images) {
-        if (images == null || images.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<String> captions = new ArrayList<>();
-        for (MultipartFile image : images) {
-            try {
-                String caption = imageAnalysisService.analyzeCaption(image).caption();
-                if (caption != null && !caption.isBlank()) {
-                    captions.add(caption);
-                }
-            } catch (Exception e) {
-                // BLIP 서버 미실행 등 분석 실패 시 해당 이미지 건너뜀
-                log.warn("BLIP caption extraction skipped filename={} reason={}",
-                        image.getOriginalFilename(), e.getMessage(), e);
-            }
-        }
-        return captions;
     }
 
     /**

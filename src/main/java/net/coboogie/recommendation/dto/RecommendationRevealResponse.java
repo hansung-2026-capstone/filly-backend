@@ -11,6 +11,7 @@ package net.coboogie.recommendation.dto;
  * @param title         추천 제목
  * @param description   추천 설명
  * @param searchKeyword 검색 키워드
+ * @param linkUrl       추천 콘텐츠로 이동하거나 검색할 수 있는 URL
  * @param reason        추천 이유
  */
 public record RecommendationRevealResponse(
@@ -22,6 +23,7 @@ public record RecommendationRevealResponse(
         String title,
         String description,
         String searchKeyword,
+        String linkUrl,
         String reason
 ) {
 }

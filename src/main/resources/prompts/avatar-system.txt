@@ -3,11 +3,17 @@ Based on the user's persona, assign an animal character and determine the visual
 
 [Animal Assignment Guide]
 Choose exactly one animal based on the persona's dominant personality traits:
-- turtle: calm, patient, steady, introverted, thoughtful
-- cat: independent, curious, elegant, mysterious, sensitive
-- dog: sociable, energetic, loyal, cheerful, warm-hearted
-- capybara: easygoing, relaxed, peaceful, harmonious, unbothered
-- bear: warm, cozy, nurturing, strong, dependable
+- turtle: slow-paced, patient, protective, quietly persistent
+- cat: curious, observant, sensitive, independent, reflective
+- dog: sociable, energetic, loyal, expressive, warm-hearted
+- capybara: relaxed, harmonious, easygoing, socially peaceful
+- bear: cozy, nurturing, grounded, dependable, comfort-seeking
+
+Do not choose turtle only because the persona is calm, thoughtful, or introverted.
+Use turtle only when slow pace, patience, and quiet persistence are clearly central.
+If the persona is thoughtful or introverted but also curious or sensitive, choose cat.
+If the persona is calm and peaceful but socially harmonious, choose capybara.
+If the persona is calm, warm, and dependable, choose bear.
 
 [Background Color Guide]
 Choose a soft pastel color description based on the persona's overall emotional mood.

@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 
 /**
  * DiaryController 단위 테스트.
@@ -218,6 +220,58 @@ class DiaryControllerTest {
         assertThatThrownBy(() -> diaryController.updateDiary(USER_ID, DIARY_ID, request))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining("일기를 찾을 수 없습니다");
+    }
+
+    @Test
+    @DisplayName("일기 이미지 추가 요청 시 200과 수정된 일기를 반환한다")
+    void givenImages_whenAddDiaryMedia_thenReturn200() {
+        // given
+        MultipartFile image = mock(MultipartFile.class);
+        DiaryResponse updated = makeDiaryResponse(DIARY_ID, "이미지 추가");
+        given(diaryService.addDiaryMedia(DIARY_ID, USER_ID, List.of(image))).willReturn(updated);
+
+        // when
+        ResponseEntity<ApiResponse<DiaryResponse>> response =
+                diaryController.addDiaryMedia(USER_ID, DIARY_ID, List.of(image));
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().data().id()).isEqualTo(DIARY_ID);
+    }
+
+    @Test
+    @DisplayName("일기 이미지 교체 요청 시 200과 수정된 일기를 반환한다")
+    void givenImage_whenReplaceDiaryMedia_thenReturn200() {
+        // given
+        Long mediaId = 3L;
+        MultipartFile image = mock(MultipartFile.class);
+        DiaryResponse updated = makeDiaryResponse(DIARY_ID, "이미지 교체");
+        given(diaryService.replaceDiaryMedia(DIARY_ID, USER_ID, mediaId, image)).willReturn(updated);
+
+        // when
+        ResponseEntity<ApiResponse<DiaryResponse>> response =
+                diaryController.replaceDiaryMedia(USER_ID, DIARY_ID, mediaId, image);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().data().id()).isEqualTo(DIARY_ID);
+    }
+
+    @Test
+    @DisplayName("일기 이미지 삭제 요청 시 200과 수정된 일기를 반환한다")
+    void givenMediaId_whenDeleteDiaryMedia_thenReturn200() {
+        // given
+        Long mediaId = 3L;
+        DiaryResponse updated = makeDiaryResponse(DIARY_ID, "이미지 삭제");
+        given(diaryService.deleteDiaryMedia(DIARY_ID, USER_ID, mediaId)).willReturn(updated);
+
+        // when
+        ResponseEntity<ApiResponse<DiaryResponse>> response =
+                diaryController.deleteDiaryMedia(USER_ID, DIARY_ID, mediaId);
+
+        // then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().data().id()).isEqualTo(DIARY_ID);
     }
 
     // ─────────────────────────────────────────

@@ -19,8 +19,8 @@ class AiDraftGeneratorServiceTest {
         // when
         String message = sut.buildUserMessage(
                 "오늘 카페에 갔다",
-                List.of(),
-                null,
+                false,
+                false,
                 LocalDate.of(2026, 5, 14),
                 "female",
                 "20대",
@@ -35,7 +35,8 @@ class AiDraftGeneratorServiceTest {
                 .contains("선호 어투: 따뜻하고 다정한 문체")
                 .contains("성별과 나이대는 본문에 직접 언급하지 마세요")
                 .contains("emotions, happinessIndex, activities, places, people, iabCategories, patterns")
-                .contains("입력 내용 기준으로만 판단하세요");
+                .contains("입력 내용 기준으로만 판단하세요")
+                .contains("입력된 이미지(사진) 및 음성 데이터를 직접 분석하여");
     }
 
     @Test
@@ -44,8 +45,8 @@ class AiDraftGeneratorServiceTest {
         // when
         String message = sut.buildUserMessage(
                 "오늘은 날씨가 좋았다",
-                List.of(),
-                null,
+                false,
+                false,
                 LocalDate.of(2026, 5, 14),
                 "none",
                 "none",

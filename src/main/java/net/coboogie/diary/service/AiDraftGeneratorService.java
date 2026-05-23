@@ -47,28 +47,42 @@ public class AiDraftGeneratorService {
      * 사용자 입력을 기반으로 AI 일기 초안을 생성한다.
      *
      * @param textContent        사용자가 직접 입력한 텍스트 메모 (null 허용)
-     * @param imageCaptions      BLIP 모델로 추출된 이미지 장면 설명 목록
-     * @param voiceTranscription Chirp STT로 전사된 음성 메모 (null 허용)
+     * @param images             사용자가 제공한 사진 파일 목록 (null 허용)
+     * @param voice              사용자가 제공한 음성 파일 (null 허용)
      * @param writtenAt          일기 작성 날짜
      * @param gender             사용자 성별 설정
      * @param ageGroup           사용자 나이대 설정
      * @param aiDraftTone        사용자 선호 초안 어투 설정
      * @return AI가 생성한 일기 텍스트 및 감정 분석 결과
      */
-    public AiDraftResult generate(String textContent, List<String> imageCaptions,
-                                  String voiceTranscription, LocalDate writtenAt,
+    public AiDraftResult generate(String textContent, List<MultipartFile> images,
+                                  MultipartFile voice, LocalDate writtenAt,
                                   String gender, String ageGroup, String aiDraftTone) {
+        boolean hasImages = images != null && !images.isEmpty();
+        boolean hasVoice = voice != null && !voice.isEmpty();
         String userMessage = buildUserMessage(
-                textContent, imageCaptions, voiceTranscription, writtenAt, gender, ageGroup, aiDraftTone);
+                textContent, hasImages, hasVoice, writtenAt, gender, ageGroup, aiDraftTone);
         long startedAt = System.currentTimeMillis();
-        log.info("Gemini diary draft request start writtenAt={} textLength={} captionCount={} hasVoice={}",
+        log.info("Gemini diary draft request start writtenAt={} textLength={} imageCount={} hasVoice={}",
                 writtenAt,
                 textContent == null ? 0 : textContent.length(),
-                imageCaptions.size(),
-                voiceTranscription != null && !voiceTranscription.isBlank());
+                images == null ? 0 : images.size(),
+                hasVoice);
 
         String raw = chatClient.prompt()
-                .user(userMessage)
+                .user(u -> {
+                    u.text(userMessage);
+                    if (images != null) {
+                        for (MultipartFile image : images) {
+                            if (image != null && !image.isEmpty()) {
+                                u.media(MimeTypeUtils.parseMimeType(image.getContentType()), image.getResource());
+                            }
+                        }
+                    }
+                    if (voice != null && !voice.isEmpty()) {
+                        u.media(MimeTypeUtils.parseMimeType(voice.getContentType()), voice.getResource());
+                    }
+                })
                 .call()
                 .content();
 
@@ -119,8 +133,8 @@ public class AiDraftGeneratorService {
      * 요청별 데이터를 조합하여 user 메시지를 구성한다.
      * 시스템 역할 정의는 AiConfig의 defaultSystem에서 처리하므로 여기서는 데이터만 담는다.
      */
-    String buildUserMessage(String textContent, List<String> imageCaptions,
-                            String voiceTranscription, LocalDate writtenAt,
+    String buildUserMessage(String textContent, boolean hasImages,
+                            boolean hasVoice, LocalDate writtenAt,
                             String gender, String ageGroup, String aiDraftTone) {
         return """
                 [작성 날짜]
@@ -141,19 +155,14 @@ public class AiDraftGeneratorService {
                 [텍스트 메모]
                 %s
 
-                [음성 메모]
-                %s
-
-                [사진 속 장면]
-                %s
+                [안내]
+                - 입력된 이미지(사진) 및 음성 데이터를 직접 분석하여 일기 초안과 감정 분석 결과를 도출하세요.
                 """.formatted(
                 writtenAt.format(DATE_FORMATTER),
                 displayPreference(gender),
                 displayPreference(ageGroup),
                 describeTone(aiDraftTone),
-                orNone(textContent),
-                orNone(voiceTranscription),
-                imageCaptions.isEmpty() ? "(없음)" : String.join("\n", imageCaptions)
+                orNone(textContent)
         );
     }
 
