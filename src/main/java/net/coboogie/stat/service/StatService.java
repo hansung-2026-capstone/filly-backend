@@ -176,10 +176,61 @@ public class StatService {
 
     private HabitDiscovery toHabitDiscovery(String patternKey, String pattern, int count) {
         String category = habitCategory(patternKey);
-        String message = count > 1
-                ? "%s 패턴이 이번 달 %d번 나타났어요.".formatted(pattern, count)
-                : "%s 패턴이 이번 달 처음 신호로 잡혔어요.".formatted(pattern);
+        String message = habitMessage(patternKey, pattern, count);
         return new HabitDiscovery(category, patternKey, pattern, count, message);
+    }
+
+    private String habitMessage(String patternKey, String pattern, int count) {
+        if (isCaffeinePattern(patternKey, pattern)) {
+            String phrase = normalizeCaffeinePhrase(pattern);
+            return count > 1
+                    ? "%s 많이 마셨네요!".formatted(phrase)
+                    : "%s 마셨네요!".formatted(phrase);
+        }
+        return count > 1
+                ? "%s을(를) 자주 했네요!".formatted(removeSignalSuffix(pattern))
+                : "%s을(를) 했네요.".formatted(removeSignalSuffix(pattern));
+    }
+
+    private boolean isCaffeinePattern(String patternKey, String pattern) {
+        return patternKey.equals("caffeinePattern")
+                || patternKey.equals("caffeine_pattern")
+                || pattern.contains("커피")
+                || pattern.contains("아메리카노")
+                || pattern.contains("라떼")
+                || pattern.contains(" 차")
+                || pattern.contains("차를")
+                || pattern.contains("에너지드링크")
+                || pattern.contains("카페인");
+    }
+
+    private String normalizeCaffeinePhrase(String pattern) {
+        String phrase = removeSignalSuffix(pattern)
+                .replace("마시는 편", "")
+                .replace("마심", "")
+                .replace("마시기", "")
+                .strip();
+
+        phrase = phrase
+                .replaceFirst("^(아침|오전|점심|오후|저녁|밤|새벽)\\s+", "$1에 ");
+
+        if (phrase.endsWith("커피")
+                || phrase.endsWith("아메리카노")
+                || phrase.endsWith("라떼")
+                || phrase.endsWith("차")
+                || phrase.endsWith("에너지드링크")) {
+            phrase += "를";
+        }
+        return phrase;
+    }
+
+    private String removeSignalSuffix(String pattern) {
+        return pattern
+                .replace("마시는 신호", "")
+                .replace("먹는 신호", "")
+                .replace("하는 신호", "")
+                .replace(" 신호", "")
+                .strip();
     }
 
     private String habitCategory(String patternKey) {
