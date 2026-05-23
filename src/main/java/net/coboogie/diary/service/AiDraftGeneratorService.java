@@ -6,13 +6,17 @@ import lombok.extern.slf4j.Slf4j;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.exception.AiDraftGenerationException;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.content.Media;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -91,6 +95,41 @@ public class AiDraftGeneratorService {
     }
 
     /**
+     * 사용자 입력 원본(텍스트/이미지/음성)을 Gemini 멀티모달 입력으로 전달하여 일기 초안을 생성한다.
+     * v2 초안 생성에서는 STT와 BLIP 전처리를 거치지 않는다.
+     */
+    public AiDraftResult generateMultimodal(String textContent, List<MultipartFile> images,
+                                            MultipartFile voice, LocalDate writtenAt,
+                                            String gender, String ageGroup, String aiDraftTone) {
+        String userMessage = buildMultimodalUserMessage(textContent, images, voice,
+                writtenAt, gender, ageGroup, aiDraftTone);
+        Media[] media = buildMedia(images, voice);
+        long startedAt = System.currentTimeMillis();
+        log.info("Gemini multimodal diary draft request start writtenAt={} textLength={} mediaCount={} hasVoice={}",
+                writtenAt,
+                textContent == null ? 0 : textContent.length(),
+                media.length,
+                voice != null && !voice.isEmpty());
+
+        String raw = chatClient.prompt()
+                .user(user -> {
+                    user.text(userMessage);
+                    if (media.length > 0) {
+                        user.media(media);
+                    }
+                })
+                .call()
+                .content();
+
+        AiDraftResult result = parseWithFallback(raw);
+        log.info("Gemini multimodal diary draft request complete elapsedMs={} generatedTextLength={} happinessIndex={}",
+                System.currentTimeMillis() - startedAt,
+                result.generatedText() == null ? 0 : result.generatedText().length(),
+                result.happinessIndex());
+        return result;
+    }
+
+    /**
      * 요청별 데이터를 조합하여 user 메시지를 구성한다.
      * 시스템 역할 정의는 AiConfig의 defaultSystem에서 처리하므로 여기서는 데이터만 담는다.
      */
@@ -125,6 +164,86 @@ public class AiDraftGeneratorService {
                 describeTone(aiDraftTone),
                 orNone(textContent)
         );
+    }
+
+    String buildMultimodalUserMessage(String textContent, List<MultipartFile> images,
+                                      MultipartFile voice, LocalDate writtenAt,
+                                      String gender, String ageGroup, String aiDraftTone) {
+        int imageCount = images == null ? 0
+                : (int) images.stream().filter(image -> image != null && !image.isEmpty()).count();
+        boolean hasVoice = voice != null && !voice.isEmpty();
+        return """
+                [작성 날짜]
+                %s
+
+                [개인화 설정]
+                성별: %s
+                나이대: %s
+                선호 어투: %s
+
+                [개인화 적용 규칙]
+                - 개인화 설정은 generatedText의 문체와 표현 강도에만 반영하세요.
+                - 설정 없음인 항목은 generatedText에 반영하지 마세요.
+                - 성별과 나이대는 본문에 직접 언급하지 마세요.
+                - 입력에 없는 사건, 감정, 관계를 만들지 마세요.
+                - emotions, happinessIndex, activities, places, people, iabCategories, patterns는 입력 내용 기준으로만 판단하세요.
+
+                [입력 해석 규칙]
+                - 첨부 오디오는 사용자의 음성 메모입니다. 전사한 뒤 텍스트 메모와 같은 비중으로 사용하세요.
+                - 첨부 이미지는 사용자가 남긴 사진입니다. 사진 속 명확한 장면, 장소, 활동만 일기 단서로 사용하세요.
+                - 이미지나 오디오에서 불확실한 정보는 단정하지 마세요.
+                - 텍스트, 오디오, 이미지를 종합해 기존 응답 JSON 스키마와 동일하게 반환하세요.
+
+                [텍스트 메모]
+                %s
+
+                [첨부 현황]
+                이미지: %d장
+                음성: %s
+                """.formatted(
+                writtenAt.format(DATE_FORMATTER),
+                displayPreference(gender),
+                displayPreference(ageGroup),
+                describeTone(aiDraftTone),
+                orNone(textContent),
+                imageCount,
+                hasVoice ? "있음" : "없음"
+        );
+    }
+
+    private Media[] buildMedia(List<MultipartFile> images, MultipartFile voice) {
+        List<Media> media = new ArrayList<>();
+        if (images != null) {
+            for (MultipartFile image : images) {
+                if (image != null && !image.isEmpty()) {
+                    media.add(toMedia(image));
+                }
+            }
+        }
+        if (voice != null && !voice.isEmpty()) {
+            media.add(toMedia(voice));
+        }
+        return media.toArray(Media[]::new);
+    }
+
+    private Media toMedia(MultipartFile file) {
+        try {
+            String filename = file.getOriginalFilename();
+            ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return filename;
+                }
+            };
+            return Media.builder()
+                    .mimeType(MimeTypeUtils.parseMimeType(file.getContentType()))
+                    .data(resource)
+                    .name(filename)
+                    .build();
+        } catch (IOException e) {
+            throw new AiDraftGenerationException("첨부 파일을 AI 입력으로 변환할 수 없습니다: "
+                    + file.getOriginalFilename(), e);
+        }
     }
 
     private String displayPreference(String value) {
