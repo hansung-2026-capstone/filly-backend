@@ -30,6 +30,14 @@ public interface AiEmotionAnalysisRepository extends JpaRepository<AiEmotionAnal
     List<AiEmotionAnalysisVO> findByDiary_IdIn(List<Long> diaryIds);
 
     /**
+     * 특정 일기의 감정 분석 결과를 삭제한다.
+     *
+     * @param diaryId 일기 ID
+     * @return 삭제된 감정 분석 수
+     */
+    long deleteByDiaryId(Long diaryId);
+
+    /**
      * 특정 사용자의 지정 기간 내 일기에 대한 감정 분석 목록을 반환한다.
      *
      * @param userId    조회할 사용자 ID
