@@ -14,7 +14,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class AvatarService {
     private final GcsStorageService gcsStorageService;
     private final ChatClient avatarChatClient;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     /** AvatarService 생성자. */
     public AvatarService(
@@ -47,7 +49,8 @@ public class AvatarService {
             VertexAiImagenService vertexAiImagenService,
             GcsStorageService gcsStorageService,
             @Qualifier("avatarChatClient") ChatClient avatarChatClient,
-            @Qualifier("aiObjectMapper") ObjectMapper objectMapper) {
+            @Qualifier("aiObjectMapper") ObjectMapper objectMapper,
+            PlatformTransactionManager transactionManager) {
         this.avatarHistoryRepository = avatarHistoryRepository;
         this.personaSnapshotRepository = personaSnapshotRepository;
         this.userRepository = userRepository;
@@ -55,6 +58,7 @@ public class AvatarService {
         this.gcsStorageService = gcsStorageService;
         this.avatarChatClient = avatarChatClient;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -69,13 +73,8 @@ public class AvatarService {
      * @throws NoSuchElementException 사용자 또는 페르소나가 존재하지 않는 경우
      * @throws IllegalStateException  이미지 생성 또는 업로드 실패 시
      */
-    @Transactional
     public AvatarResponse generateAvatar(Long userId) {
-        UserVO user = userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
-
-        PersonaSnapshotVO persona = personaSnapshotRepository.findLatestByUserId(userId)
-                .orElseThrow(() -> new IllegalStateException("아바타 생성에 필요한 페르소나가 없습니다. 먼저 페르소나를 생성해 주세요."));
+        AvatarPersonaData persona = loadLatestPersona(userId);
 
         byte[] imageBytes;
         try {
@@ -87,16 +86,8 @@ public class AvatarService {
 
         String blobPath = gcsStorageService.uploadBytes(imageBytes, "avatars", "avatar.png", "image/png");
         String signedUrl = gcsStorageService.generateSignedUrl(blobPath);
+        AvatarHistoryVO saved = saveAvatarHistory(userId, persona.id(), blobPath);
 
-        AvatarHistoryVO history = AvatarHistoryVO.builder()
-                .user(user)
-                .personaSnapshot(persona)
-                .gcsUrl(blobPath)
-                .status(AvatarHistoryVO.Status.COMPLETED)
-                .build();
-        AvatarHistoryVO saved = avatarHistoryRepository.save(history);
-
-        user.setCurrentAvatarUrl(blobPath);
         log.info("아바타 생성 완료: userId={}, avatarHistoryId={}", userId, saved.getId());
 
         return new AvatarResponse(saved.getId(), signedUrl);
@@ -113,30 +104,15 @@ public class AvatarService {
      * @param personaSnapshotId 방금 생성된 페르소나 스냅샷 ID
      */
     @Async
-    @Transactional
     public void generateAvatarAsync(Long userId, Long personaSnapshotId) {
         log.info("아바타 비동기 생성 시작: userId={}, personaSnapshotId={}", userId, personaSnapshotId);
         try {
-            UserVO user = userRepository.findById(userId)
-                    .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
-
-            PersonaSnapshotVO persona = personaSnapshotRepository.findById(personaSnapshotId)
-                    .orElseThrow(() -> new NoSuchElementException("페르소나를 찾을 수 없습니다: " + personaSnapshotId));
-
+            AvatarPersonaData persona = loadPersona(personaSnapshotId);
             byte[] imageBytes = generateImageBytes(userId, persona);
 
             String blobPath = gcsStorageService.uploadBytes(imageBytes, "avatars", "avatar.png", "image/png");
             String signedUrl = gcsStorageService.generateSignedUrl(blobPath);
-
-            AvatarHistoryVO history = AvatarHistoryVO.builder()
-                    .user(user)
-                    .personaSnapshot(persona)
-                    .gcsUrl(blobPath)
-                    .status(AvatarHistoryVO.Status.COMPLETED)
-                    .build();
-            avatarHistoryRepository.save(history);
-
-            user.setCurrentAvatarUrl(blobPath);
+            saveAvatarHistory(userId, persona.id(), blobPath);
             log.info("아바타 비동기 생성 완료: userId={}, signedUrl={}", userId, signedUrl);
 
         } catch (InterruptedException e) {
@@ -147,7 +123,114 @@ public class AvatarService {
         }
     }
 
-    private byte[] generateImageBytes(Long userId, PersonaSnapshotVO persona) throws InterruptedException {
+    /*
+     * Legacy implementation retained for reference.
+     *
+     * @Transactional
+     * public AvatarResponse generateAvatar(Long userId) {
+     *     UserVO user = userRepository.findById(userId)
+     *             .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+     *
+     *     PersonaSnapshotVO persona = personaSnapshotRepository.findLatestByUserId(userId)
+     *             .orElseThrow(() -> new IllegalStateException("아바타 생성에 필요한 페르소나가 없습니다. 먼저 페르소나를 생성해 주세요."));
+     *
+     *     byte[] imageBytes;
+     *     try {
+     *         imageBytes = generateImageBytes(userId, persona);
+     *     } catch (InterruptedException e) {
+     *         Thread.currentThread().interrupt();
+     *         throw new IllegalStateException("아바타 이미지 생성 중 인터럽트가 발생했습니다.", e);
+     *     }
+     *
+     *     String blobPath = gcsStorageService.uploadBytes(imageBytes, "avatars", "avatar.png", "image/png");
+     *     String signedUrl = gcsStorageService.generateSignedUrl(blobPath);
+     *
+     *     AvatarHistoryVO history = AvatarHistoryVO.builder()
+     *             .user(user)
+     *             .personaSnapshot(persona)
+     *             .gcsUrl(blobPath)
+     *             .status(AvatarHistoryVO.Status.COMPLETED)
+     *             .build();
+     *     AvatarHistoryVO saved = avatarHistoryRepository.save(history);
+     *
+     *     user.setCurrentAvatarUrl(blobPath);
+     *     log.info("아바타 생성 완료: userId={}, avatarHistoryId={}", userId, saved.getId());
+     *
+     *     return new AvatarResponse(saved.getId(), signedUrl);
+     * }
+     *
+     * @Async
+     * @Transactional
+     * public void generateAvatarAsync(Long userId, Long personaSnapshotId) {
+     *     log.info("아바타 비동기 생성 시작: userId={}, personaSnapshotId={}", userId, personaSnapshotId);
+     *     try {
+     *         UserVO user = userRepository.findById(userId)
+     *                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+     *
+     *         PersonaSnapshotVO persona = personaSnapshotRepository.findById(personaSnapshotId)
+     *                 .orElseThrow(() -> new NoSuchElementException("페르소나를 찾을 수 없습니다: " + personaSnapshotId));
+     *
+     *         byte[] imageBytes = generateImageBytes(userId, persona);
+     *
+     *         String blobPath = gcsStorageService.uploadBytes(imageBytes, "avatars", "avatar.png", "image/png");
+     *         String signedUrl = gcsStorageService.generateSignedUrl(blobPath);
+     *
+     *         AvatarHistoryVO history = AvatarHistoryVO.builder()
+     *                 .user(user)
+     *                 .personaSnapshot(persona)
+     *                 .gcsUrl(blobPath)
+     *                 .status(AvatarHistoryVO.Status.COMPLETED)
+     *                 .build();
+     *         avatarHistoryRepository.save(history);
+     *
+     *         user.setCurrentAvatarUrl(blobPath);
+     *         log.info("아바타 비동기 생성 완료: userId={}, signedUrl={}", userId, signedUrl);
+     *
+     *     } catch (InterruptedException e) {
+     *         Thread.currentThread().interrupt();
+     *         log.error("아바타 비동기 생성 중 인터럽트 발생: userId={}", userId, e);
+     *     } catch (Exception e) {
+     *         log.error("아바타 비동기 생성 실패: userId={}", userId, e);
+     *     }
+     * }
+     */
+
+    private AvatarPersonaData loadLatestPersona(Long userId) {
+        return transactionTemplate.execute(status -> {
+            PersonaSnapshotVO persona = personaSnapshotRepository.findLatestByUserId(userId)
+                    .orElseThrow(() -> new IllegalStateException("아바타 생성에 필요한 페르소나가 없습니다. 먼저 페르소나를 생성해 주세요."));
+            return AvatarPersonaData.from(persona);
+        });
+    }
+
+    private AvatarPersonaData loadPersona(Long personaSnapshotId) {
+        return transactionTemplate.execute(status -> {
+            PersonaSnapshotVO persona = personaSnapshotRepository.findById(personaSnapshotId)
+                    .orElseThrow(() -> new NoSuchElementException("페르소나를 찾을 수 없습니다: " + personaSnapshotId));
+            return AvatarPersonaData.from(persona);
+        });
+    }
+
+    private AvatarHistoryVO saveAvatarHistory(Long userId, Long personaSnapshotId, String blobPath) {
+        return transactionTemplate.execute(status -> {
+            UserVO user = userRepository.findById(userId)
+                    .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+            PersonaSnapshotVO persona = personaSnapshotRepository.findById(personaSnapshotId)
+                    .orElseThrow(() -> new NoSuchElementException("페르소나를 찾을 수 없습니다: " + personaSnapshotId));
+
+            AvatarHistoryVO history = AvatarHistoryVO.builder()
+                    .user(user)
+                    .personaSnapshot(persona)
+                    .gcsUrl(blobPath)
+                    .status(AvatarHistoryVO.Status.COMPLETED)
+                    .build();
+            AvatarHistoryVO saved = avatarHistoryRepository.save(history);
+            user.setCurrentAvatarUrl(blobPath);
+            return saved;
+        });
+    }
+
+    private byte[] generateImageBytes(Long userId, AvatarPersonaData persona) throws InterruptedException {
         AvatarParams params = resolveAvatarParams(persona);
         log.info("아바타 파라미터 결정: userId={}, animal={}, bgColor={}, pose={}",
                 userId, params.animal(), params.backgroundColor(), params.pose());
@@ -161,8 +244,8 @@ public class AvatarService {
     }
 
     @SuppressWarnings("unchecked")
-    private AvatarParams resolveAvatarParams(PersonaSnapshotVO persona) {
-        String userMessage = "Persona Title: " + persona.getTitle() + "\nPersona Summary: " + persona.getSummary();
+    private AvatarParams resolveAvatarParams(AvatarPersonaData persona) {
+        String userMessage = "Persona Title: " + persona.title() + "\nPersona Summary: " + persona.summary();
         String raw = avatarChatClient.prompt()
                 .user(userMessage)
                 .call()
@@ -206,5 +289,12 @@ public class AvatarService {
      * @param pose            포즈 설명 (영어)
      */
     private record AvatarParams(String animal, String backgroundColor, String pose) {
+    }
+
+    private record AvatarPersonaData(Long id, String title, String summary) {
+
+        private static AvatarPersonaData from(PersonaSnapshotVO persona) {
+            return new AvatarPersonaData(persona.getId(), persona.getTitle(), persona.getSummary());
+        }
     }
 }
