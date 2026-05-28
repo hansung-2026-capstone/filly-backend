@@ -12,9 +12,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -29,7 +33,11 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class GcsStorageService {
 
+    private static final Duration SIGNED_URL_TTL = Duration.ofHours(1);
+    private static final Duration SIGNED_URL_CACHE_TTL = Duration.ofMinutes(55);
+
     private final Storage storage;
+    private final Map<String, CachedSignedUrl> signedUrlCache = new ConcurrentHashMap<>();
 
     @Value("${spring.cloud.gcp.storage.bucket}")
     private String bucketName;
@@ -83,15 +91,22 @@ public class GcsStorageService {
             return "https://storage.googleapis.com/" + bucketName + "/" + blobName;
         }
         String resolvedBlobName = stripBucketPrefix(blobName);
+        CachedSignedUrl cached = signedUrlCache.get(resolvedBlobName);
+        if (cached != null && cached.isValid()) {
+            log.debug("GCS signed URL cache hit bucket={} blobName={}", bucketName, resolvedBlobName);
+            return cached.url();
+        }
         log.info("GCS signed URL start bucket={} blobName={}", bucketName, resolvedBlobName);
         BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, resolvedBlobName)).build();
         URL signedUrl = storage.signUrl(
                 blobInfo,
-                1, TimeUnit.HOURS,
+                SIGNED_URL_TTL.toHours(), TimeUnit.HOURS,
                 Storage.SignUrlOption.withV4Signature()
         );
         log.info("GCS signed URL complete bucket={} blobName={}", bucketName, resolvedBlobName);
-        return signedUrl.toString();
+        String url = signedUrl.toString();
+        signedUrlCache.put(resolvedBlobName, new CachedSignedUrl(url, Instant.now().plus(SIGNED_URL_CACHE_TTL)));
+        return url;
     }
 
     /**
@@ -103,6 +118,7 @@ public class GcsStorageService {
      */
     public boolean delete(String blobName) {
         String resolvedBlobName = stripBucketPrefix(blobName);
+        signedUrlCache.remove(resolvedBlobName);
         if (!storageEnabled) {
             log.info("GCS delete skipped storageEnabled=false blobName={}", resolvedBlobName);
             return true;
@@ -182,10 +198,41 @@ public class GcsStorageService {
      * @return blob 경로
      */
     private String stripBucketPrefix(String blobName) {
+        if (blobName == null || blobName.isBlank()) {
+            return blobName;
+        }
         String prefix = "https://storage.googleapis.com/" + bucketName + "/";
         if (blobName.startsWith(prefix)) {
             return blobName.substring(prefix.length());
         }
         return blobName;
+    }
+
+    /*
+     * Legacy implementation retained for reference.
+     *
+     * public String generateSignedUrl(String blobName) {
+     *     if (!storageEnabled) {
+     *         log.info("GCS signed URL skipped storageEnabled=false blobName={}", blobName);
+     *         return "https://storage.googleapis.com/" + bucketName + "/" + blobName;
+     *     }
+     *     String resolvedBlobName = stripBucketPrefix(blobName);
+     *     log.info("GCS signed URL start bucket={} blobName={}", bucketName, resolvedBlobName);
+     *     BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, resolvedBlobName)).build();
+     *     URL signedUrl = storage.signUrl(
+     *             blobInfo,
+     *             1, TimeUnit.HOURS,
+     *             Storage.SignUrlOption.withV4Signature()
+     *     );
+     *     log.info("GCS signed URL complete bucket={} blobName={}", bucketName, resolvedBlobName);
+     *     return signedUrl.toString();
+     * }
+     */
+
+    private record CachedSignedUrl(String url, Instant expiresAt) {
+
+        private boolean isValid() {
+            return Instant.now().isBefore(expiresAt);
+        }
     }
 }
