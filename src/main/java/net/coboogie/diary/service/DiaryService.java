@@ -383,9 +383,9 @@ public class DiaryService {
         LocalDate endDate = yearMonth.atEndOfMonth();
 
         return diaryEntryRepository
-                .findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
+                .findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
                 .stream()
-                .map(d -> DiaryResponse.from(d, gcsStorageService::generateSignedUrl))
+                .map(d -> DiaryResponse.fromSummary(d, gcsStorageService::generateSignedUrl))
                 .toList();
     }
 
@@ -686,9 +686,9 @@ public class DiaryService {
     public List<DiaryResponse> getAllDiaries(Long userId){
 
 
-        return diaryEntryRepository.findAllByUser_Id(userId)
+        return diaryEntryRepository.findWithMediaByUser_Id(userId)
                 .stream()
-                .map(d -> DiaryResponse.from(d, gcsStorageService::generateSignedUrl))
+                .map(d -> DiaryResponse.fromSummary(d, gcsStorageService::generateSignedUrl))
                 .toList();
 
     }
