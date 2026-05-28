@@ -1,5 +1,7 @@
 package net.coboogie.diary.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -29,10 +31,21 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class GcsStorageService {
 
+    private static final int SIGNED_URL_EXPIRATION_HOURS = 1;
+    private static final int SIGNED_URL_CACHE_MINUTES = 50;
+    private static final long SIGNED_URL_CACHE_MAX_SIZE = 10_000;
+
     private final Storage storage;
+    private final Cache<String, String> signedUrlCache = Caffeine.newBuilder()
+            .expireAfterWrite(SIGNED_URL_CACHE_MINUTES, TimeUnit.MINUTES)
+            .maximumSize(SIGNED_URL_CACHE_MAX_SIZE)
+            .build();
 
     @Value("${spring.cloud.gcp.storage.bucket}")
     private String bucketName;
+
+    @Value("${app.gcs.public-avatar-bucket}")
+    private String publicAvatarBucketName;
 
     @Value("${spring.cloud.gcp.storage.enabled:true}")
     private boolean storageEnabled;
@@ -83,15 +96,75 @@ public class GcsStorageService {
             return "https://storage.googleapis.com/" + bucketName + "/" + blobName;
         }
         String resolvedBlobName = stripBucketPrefix(blobName);
+        return signedUrlCache.get(resolvedBlobName, this::createSignedUrl);
+    }
+
+    private String createSignedUrl(String resolvedBlobName) {
         log.info("GCS signed URL start bucket={} blobName={}", bucketName, resolvedBlobName);
         BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, resolvedBlobName)).build();
         URL signedUrl = storage.signUrl(
                 blobInfo,
-                1, TimeUnit.HOURS,
+                SIGNED_URL_EXPIRATION_HOURS, TimeUnit.HOURS,
                 Storage.SignUrlOption.withV4Signature()
         );
         log.info("GCS signed URL complete bucket={} blobName={}", bucketName, resolvedBlobName);
         return signedUrl.toString();
+    }
+
+    /**
+     * GCS blob 경로를 공개 URL로 변환한다.
+     * 이미 HTTP URL이면 그대로 반환하며, GCS 서명이나 네트워크 호출은 수행하지 않는다.
+     *
+     * @param blobName GCS blob 경로 또는 기존 URL
+     * @return 공개 접근용 GCS URL
+     */
+    public String generatePublicUrl(String blobName) {
+        if (blobName == null || blobName.isBlank() || isHttpUrl(blobName)) {
+            return blobName;
+        }
+        String resolvedBlobName = stripBucketPrefix(blobName);
+        return "https://storage.googleapis.com/" + bucketName + "/" + resolvedBlobName;
+    }
+
+    /**
+     * 아바타 이미지를 공개 버킷에 업로드하고 공개 URL을 반환한다.
+     * 사용자 업로드 미디어는 비공개 버킷을 계속 사용하고, 아바타만 별도 public bucket에 저장한다.
+     *
+     * @param bytes       업로드할 이미지 바이트
+     * @param filename    저장 파일명
+     * @param contentType 파일 MIME 타입
+     * @return 공개 접근 가능한 아바타 URL
+     */
+    public String uploadPublicAvatarBytes(byte[] bytes, String filename, String contentType) {
+        String blobName = "avatars/" + UUID.randomUUID() + "_" + filename;
+
+        if (!storageEnabled) {
+            log.info("GCS public avatar upload skipped storageEnabled=false blobName={}", blobName);
+            return generatePublicAvatarUrl(blobName);
+        }
+
+        log.info("GCS public avatar upload start bucket={} blobName={} contentType={} size={}",
+                publicAvatarBucketName, blobName, contentType, bytes.length);
+        BlobInfo blobInfo = BlobInfo.newBuilder(publicAvatarBucketName, blobName)
+                .setContentType(contentType)
+                .build();
+        storage.create(blobInfo, bytes);
+        log.info("GCS public avatar upload complete bucket={} blobName={}", publicAvatarBucketName, blobName);
+        return generatePublicAvatarUrl(blobName);
+    }
+
+    /**
+     * 공개 아바타 버킷의 blob 경로를 공개 URL로 변환한다.
+     *
+     * @param blobName 공개 아바타 버킷 내 blob 경로 또는 기존 URL
+     * @return 공개 접근 가능한 아바타 URL
+     */
+    public String generatePublicAvatarUrl(String blobName) {
+        if (blobName == null || blobName.isBlank() || isHttpUrl(blobName)) {
+            return blobName;
+        }
+        String resolvedBlobName = stripBucketPrefix(blobName, publicAvatarBucketName);
+        return "https://storage.googleapis.com/" + publicAvatarBucketName + "/" + resolvedBlobName;
     }
 
     /**
@@ -103,6 +176,7 @@ public class GcsStorageService {
      */
     public boolean delete(String blobName) {
         String resolvedBlobName = stripBucketPrefix(blobName);
+        signedUrlCache.invalidate(resolvedBlobName);
         if (!storageEnabled) {
             log.info("GCS delete skipped storageEnabled=false blobName={}", resolvedBlobName);
             return true;
@@ -182,10 +256,18 @@ public class GcsStorageService {
      * @return blob 경로
      */
     private String stripBucketPrefix(String blobName) {
-        String prefix = "https://storage.googleapis.com/" + bucketName + "/";
+        return stripBucketPrefix(blobName, bucketName);
+    }
+
+    private String stripBucketPrefix(String blobName, String bucket) {
+        String prefix = "https://storage.googleapis.com/" + bucket + "/";
         if (blobName.startsWith(prefix)) {
             return blobName.substring(prefix.length());
         }
         return blobName;
+    }
+
+    private boolean isHttpUrl(String value) {
+        return value.startsWith("http://") || value.startsWith("https://");
     }
 }
