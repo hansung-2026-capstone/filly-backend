@@ -361,7 +361,7 @@ public class DiaryService {
      */
     @Transactional(readOnly = true)
     public DiaryResponse getDiary(Long diaryId, Long userId) {
-        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
+        DiaryEntryVO diary = diaryEntryRepository.findWithMediaByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
         return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
     }
