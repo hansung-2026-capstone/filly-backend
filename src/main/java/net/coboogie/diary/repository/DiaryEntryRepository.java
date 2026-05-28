@@ -21,6 +21,13 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntryVO, Long> 
     Optional<DiaryEntryVO> findByIdAndUser_Id(Long id, Long userId);
 
     /**
+     * 일기 단건과 첨부 미디어를 함께 조회한다.
+     * 상세 화면에서는 모든 첨부 미디어를 내려줘야 하므로 media를 명시적으로 fetch한다.
+     */
+    @EntityGraph(attributePaths = "media")
+    Optional<DiaryEntryVO> findWithMediaByIdAndUser_Id(Long id, Long userId);
+
+    /**
      * 특정 사용자의 일기 중 작성 날짜가 지정된 기간 내에 있는 목록을 작성일 오름차순으로 반환한다.
      * 월별 목록 조회 시 해당 월의 첫째 날~마지막 날을 범위로 사용한다.
      *
