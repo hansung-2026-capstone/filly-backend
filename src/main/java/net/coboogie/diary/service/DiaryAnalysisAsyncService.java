@@ -2,7 +2,6 @@ package net.coboogie.diary.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coboogie.diary.dto.AiDraftResult;
 import net.coboogie.diary.dto.DiaryDraftResponse;
@@ -13,7 +12,8 @@ import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
@@ -28,27 +28,40 @@ import java.util.List;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DiaryAnalysisAsyncService {
 
     private final AiDraftGeneratorService aiDraftGeneratorService;
     private final DiaryEntryRepository diaryEntryRepository;
     private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
-    @Qualifier("aiObjectMapper")
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
+
+    /**
+     * DiaryAnalysisAsyncService 생성자.
+     */
+    public DiaryAnalysisAsyncService(
+            AiDraftGeneratorService aiDraftGeneratorService,
+            DiaryEntryRepository diaryEntryRepository,
+            AiEmotionAnalysisRepository aiEmotionAnalysisRepository,
+            @Qualifier("aiObjectMapper") ObjectMapper objectMapper,
+            PlatformTransactionManager transactionManager) {
+        this.aiDraftGeneratorService = aiDraftGeneratorService;
+        this.diaryEntryRepository = diaryEntryRepository;
+        this.aiEmotionAnalysisRepository = aiEmotionAnalysisRepository;
+        this.objectMapper = objectMapper;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+    }
 
     /**
      * 비동기로 일기 감정 분석을 생성하고 저장한다.
      */
     @Async
-    @Transactional
     public void analyzeAndSaveAsync(Long diaryId, String rawContent, LocalDate writtenAt,
                                     String gender, String ageGroup, String aiDraftTone,
                                     List<AnalysisImage> images) {
         long startedAt = System.currentTimeMillis();
         try {
-            DiaryEntryVO diary = diaryEntryRepository.findById(diaryId)
-                    .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다: " + diaryId));
+            ensureDiaryExists(diaryId);
             AiDraftResult aiResult = aiDraftGeneratorService.generate(
                     rawContent,
                     toMultipartFiles(images),
@@ -58,12 +71,47 @@ public class DiaryAnalysisAsyncService {
                     ageGroup,
                     aiDraftTone
             );
-            saveEmotionAnalysis(diary, toAiAnalysis(aiResult));
+            saveEmotionAnalysis(diaryId, toAiAnalysis(aiResult));
             log.info("일기 AI 분석 비동기 저장 완료: diaryId={} elapsedMs={}",
                     diaryId, System.currentTimeMillis() - startedAt);
         } catch (Exception e) {
             log.error("일기 AI 분석 비동기 저장 실패: diaryId={}", diaryId, e);
         }
+    }
+
+    /*
+     * Legacy implementation retained for reference.
+     *
+     * @Async
+     * @Transactional
+     * public void analyzeAndSaveAsync(Long diaryId, String rawContent, LocalDate writtenAt,
+     *                                 String gender, String ageGroup, String aiDraftTone,
+     *                                 List<AnalysisImage> images) {
+     *     long startedAt = System.currentTimeMillis();
+     *     try {
+     *         DiaryEntryVO diary = diaryEntryRepository.findById(diaryId)
+     *                 .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다: " + diaryId));
+     *         AiDraftResult aiResult = aiDraftGeneratorService.generate(
+     *                 rawContent,
+     *                 toMultipartFiles(images),
+     *                 null,
+     *                 writtenAt,
+     *                 gender,
+     *                 ageGroup,
+     *                 aiDraftTone
+     *         );
+     *         saveEmotionAnalysis(diary, toAiAnalysis(aiResult));
+     *         log.info("일기 AI 분석 비동기 저장 완료: diaryId={} elapsedMs={}",
+     *                 diaryId, System.currentTimeMillis() - startedAt);
+     *     } catch (Exception e) {
+     *         log.error("일기 AI 분석 비동기 저장 실패: diaryId={}", diaryId, e);
+     *     }
+     * }
+     */
+
+    private void ensureDiaryExists(Long diaryId) {
+        transactionTemplate.executeWithoutResult(status -> diaryEntryRepository.findById(diaryId)
+                .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다: " + diaryId)));
     }
 
     private List<MultipartFile> toMultipartFiles(List<AnalysisImage> images) {
@@ -89,6 +137,14 @@ public class DiaryAnalysisAsyncService {
                 aiResult.moodSummary(),
                 aiResult.tone()
         );
+    }
+
+    private void saveEmotionAnalysis(Long diaryId, DiaryDraftResponse.AiAnalysis analysis) {
+        transactionTemplate.executeWithoutResult(status -> {
+            DiaryEntryVO diary = diaryEntryRepository.findById(diaryId)
+                    .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다: " + diaryId));
+            saveEmotionAnalysis(diary, analysis);
+        });
     }
 
     private void saveEmotionAnalysis(DiaryEntryVO diary, DiaryDraftResponse.AiAnalysis analysis) {
