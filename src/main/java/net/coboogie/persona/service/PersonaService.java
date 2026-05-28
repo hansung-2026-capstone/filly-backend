@@ -14,9 +14,11 @@ import net.coboogie.vo.UserVO;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,6 +50,7 @@ public class PersonaService {
     private final ChatClient personaChatClient;
     private final ObjectMapper objectMapper;
     private final AvatarService avatarService;
+    private final TransactionTemplate transactionTemplate;
 
     /** PersonaService 생성자. */
     public PersonaService(
@@ -57,7 +60,8 @@ public class PersonaService {
             UserRepository userRepository,
             @Qualifier("personaChatClient") ChatClient personaChatClient,
             @Qualifier("aiObjectMapper") ObjectMapper objectMapper,
-            AvatarService avatarService) {
+            AvatarService avatarService,
+            PlatformTransactionManager transactionManager) {
         this.personaSnapshotRepository = personaSnapshotRepository;
         this.diaryEntryRepository = diaryEntryRepository;
         this.aiEmotionAnalysisRepository = aiEmotionAnalysisRepository;
@@ -65,6 +69,7 @@ public class PersonaService {
         this.personaChatClient = personaChatClient;
         this.objectMapper = objectMapper;
         this.avatarService = avatarService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -76,7 +81,6 @@ public class PersonaService {
      * @param userId 인증 사용자 ID
      * @return 페르소나 이력 목록 (최신순)
      */
-    @Transactional
     public List<PersonaResponse> getPersonasWithAutoGenerate(Long userId) {
         try {
             generate(userId);
@@ -108,11 +112,36 @@ public class PersonaService {
      * @param userId 인증 사용자 ID
      * @throws IllegalStateException 일기 부족 또는 7일 미경과 시
      */
-    @Transactional
     public void generate(Long userId) {
-        LocalDate today = LocalDate.now();
-        LocalDate startDate = today.minusDays(ANALYSIS_DAYS);
+        PersonaGenerationData generationData = prepareGenerationData(userId);
+        String userMessage = buildUserMessage(
+                generationData.diaryCount(),
+                generationData.startDate(),
+                generationData.endDate(),
+                generationData.analyses()
+        );
 
+        String raw = personaChatClient.prompt()
+                .user(userMessage)
+                .call()
+                .content();
+
+        Map<String, String> parsed = parseResponse(raw);
+        saveGeneratedPersona(userId, generationData.startDate(), generationData.endDate(), parsed);
+    }
+
+    private PersonaGenerationData prepareGenerationData(Long userId) {
+        return transactionTemplate.execute(status -> {
+            LocalDate today = LocalDate.now();
+            LocalDate startDate = today.minusDays(ANALYSIS_DAYS);
+            int diaryCount = validateGenerationEligibility(userId, today, startDate);
+            List<AiEmotionAnalysisVO> analyses =
+                    aiEmotionAnalysisRepository.findByUserIdAndDateRange(userId, startDate, today);
+            return new PersonaGenerationData(diaryCount, startDate, today, analyses);
+        });
+    }
+
+    private int validateGenerationEligibility(Long userId, LocalDate today, LocalDate startDate) {
         int diaryCount = diaryEntryRepository.countByUser_IdAndWrittenAtBetween(userId, startDate, today);
         if (diaryCount < REQUIRED_DIARY_COUNT) {
             throw new IllegalStateException("최근 30일 일기가 5개 미만입니다.");
@@ -130,33 +159,33 @@ public class PersonaService {
                 throw new IllegalStateException("마지막 페르소나 생성 이후 추가된 일기가 없습니다.");
             }
         }
+        return diaryCount;
+    }
 
-        UserVO user = userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+    private void saveGeneratedPersona(Long userId, LocalDate startDate, LocalDate endDate,
+                                      Map<String, String> parsed) {
+        transactionTemplate.executeWithoutResult(status -> {
+            validateGenerationEligibility(userId, endDate, startDate);
+            UserVO user = userRepository.findById(userId)
+                    .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
 
-        List<AiEmotionAnalysisVO> analyses =
-                aiEmotionAnalysisRepository.findByUserIdAndDateRange(userId, startDate, today);
+            PersonaSnapshotVO snapshot = PersonaSnapshotVO.builder()
+                    .user(user)
+                    .title(parsed.get("title"))
+                    .summary(parsed.get("summary"))
+                    .build();
 
-        String userMessage = buildUserMessage(diaryCount, startDate, today, analyses);
+            PersonaSnapshotVO saved = personaSnapshotRepository.save(snapshot);
+            log.info("페르소나 생성 완료: userId={}, title={}", userId, parsed.get("title"));
+            scheduleAvatarAfterCommit(userId, saved.getId());
+        });
+    }
 
-        String raw = personaChatClient.prompt()
-                .user(userMessage)
-                .call()
-                .content();
-
-        Map<String, String> parsed = parseResponse(raw);
-
-        PersonaSnapshotVO snapshot = PersonaSnapshotVO.builder()
-                .user(user)
-                .title(parsed.get("title"))
-                .summary(parsed.get("summary"))
-                .build();
-
-        PersonaSnapshotVO saved = personaSnapshotRepository.save(snapshot);
-        log.info("페르소나 생성 완료: userId={}, title={}", userId, parsed.get("title"));
-
-        // 트랜잭션 커밋 후 아바타 비동기 생성 — 커밋 전에 실행되면 페르소나 조회 실패 가능
-        Long snapshotId = saved.getId();
+    private void scheduleAvatarAfterCommit(Long userId, Long snapshotId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            avatarService.generateAvatarAsync(userId, snapshotId);
+            return;
+        }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
@@ -164,6 +193,66 @@ public class PersonaService {
             }
         });
     }
+
+    /*
+     * Legacy implementation retained for reference.
+     *
+     * @Transactional
+     * public void generate(Long userId) {
+     *     LocalDate today = LocalDate.now();
+     *     LocalDate startDate = today.minusDays(ANALYSIS_DAYS);
+     *
+     *     int diaryCount = diaryEntryRepository.countByUser_IdAndWrittenAtBetween(userId, startDate, today);
+     *     if (diaryCount < REQUIRED_DIARY_COUNT) {
+     *         throw new IllegalStateException("최근 30일 일기가 5개 미만입니다.");
+     *     }
+     *
+     *     Optional<PersonaSnapshotVO> latest = personaSnapshotRepository.findLatestByUserId(userId);
+     *     if (latest.isPresent()) {
+     *         LocalDateTime generatedAt = latest.get().getGeneratedAt();
+     *         LocalDateTime nextAllowed = generatedAt.plusDays(GENERATION_INTERVAL_DAYS);
+     *         if (LocalDateTime.now().isBefore(nextAllowed)) {
+     *             throw new IllegalStateException("페르소나는 7일에 한 번 생성할 수 있습니다.");
+     *         }
+     *         boolean hasNewDiary = diaryEntryRepository.existsByUser_IdAndCreatedAtAfter(userId, generatedAt);
+     *         if (!hasNewDiary) {
+     *             throw new IllegalStateException("마지막 페르소나 생성 이후 추가된 일기가 없습니다.");
+     *         }
+     *     }
+     *
+     *     UserVO user = userRepository.findById(userId)
+     *             .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+     *
+     *     List<AiEmotionAnalysisVO> analyses =
+     *             aiEmotionAnalysisRepository.findByUserIdAndDateRange(userId, startDate, today);
+     *
+     *     String userMessage = buildUserMessage(diaryCount, startDate, today, analyses);
+     *
+     *     String raw = personaChatClient.prompt()
+     *             .user(userMessage)
+     *             .call()
+     *             .content();
+     *
+     *     Map<String, String> parsed = parseResponse(raw);
+     *
+     *     PersonaSnapshotVO snapshot = PersonaSnapshotVO.builder()
+     *             .user(user)
+     *             .title(parsed.get("title"))
+     *             .summary(parsed.get("summary"))
+     *             .build();
+     *
+     *     PersonaSnapshotVO saved = personaSnapshotRepository.save(snapshot);
+     *     log.info("페르소나 생성 완료: userId={}, title={}", userId, parsed.get("title"));
+     *
+     *     Long snapshotId = saved.getId();
+     *     TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+     *         @Override
+     *         public void afterCommit() {
+     *             avatarService.generateAvatarAsync(userId, snapshotId);
+     *         }
+     *     });
+     * }
+     */
 
     /**
      * 감정 분석 데이터를 집계하여 AI에 전달할 user 메시지를 구성한다.
@@ -297,5 +386,13 @@ public class PersonaService {
             log.warn("페르소나 응답 파싱 실패. raw={}", raw, e);
             throw new IllegalStateException("AI 페르소나 응답을 파싱할 수 없습니다.", e);
         }
+    }
+
+    private record PersonaGenerationData(
+            int diaryCount,
+            LocalDate startDate,
+            LocalDate endDate,
+            List<AiEmotionAnalysisVO> analyses
+    ) {
     }
 }
