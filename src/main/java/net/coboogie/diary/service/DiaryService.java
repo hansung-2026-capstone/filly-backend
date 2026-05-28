@@ -361,7 +361,7 @@ public class DiaryService {
      */
     @Transactional(readOnly = true)
     public DiaryResponse getDiary(Long diaryId, Long userId) {
-        DiaryEntryVO diary = diaryEntryRepository.findWithMediaByIdAndUser_Id(diaryId, userId)
+        DiaryEntryVO diary = diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)
                 .orElseThrow(() -> new NoSuchElementException("일기를 찾을 수 없습니다: " + diaryId));
         return DiaryResponse.from(diary, gcsStorageService::generateSignedUrl);
     }
@@ -383,9 +383,9 @@ public class DiaryService {
         LocalDate endDate = yearMonth.atEndOfMonth();
 
         return diaryEntryRepository
-                .findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
+                .findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
                 .stream()
-                .map(d -> DiaryResponse.fromSummary(d, gcsStorageService::generateSignedUrl))
+                .map(d -> DiaryResponse.from(d, gcsStorageService::generateSignedUrl))
                 .toList();
     }
 
@@ -686,9 +686,9 @@ public class DiaryService {
     public List<DiaryResponse> getAllDiaries(Long userId){
 
 
-        return diaryEntryRepository.findWithMediaByUser_Id(userId)
+        return diaryEntryRepository.findAllByUser_Id(userId)
                 .stream()
-                .map(d -> DiaryResponse.fromSummary(d, gcsStorageService::generateSignedUrl))
+                .map(d -> DiaryResponse.from(d, gcsStorageService::generateSignedUrl))
                 .toList();
 
     }

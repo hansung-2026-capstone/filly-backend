@@ -538,7 +538,7 @@ class DiaryServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        given(diaryEntryRepository.findWithMediaByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
 
         // when
         DiaryResponse response = sut.getDiary(diaryId, userId);
@@ -551,55 +551,13 @@ class DiaryServiceTest {
     }
 
     @Test
-    @DisplayName("본인 소유 일기 상세 조회 시 모든 첨부 미디어 URL 반환")
-    void givenDiaryWithMultipleMedia_whenGetDiary_thenReturnAllMediaUrls() {
-        // given
-        Long userId = 1L;
-        Long diaryId = 10L;
-        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
-        DiaryEntryVO diary = DiaryEntryVO.builder()
-                .id(diaryId)
-                .user(mockUser)
-                .rawContent("사진 여러 장")
-                .emoji("📷")
-                .writtenAt(WRITTEN_AT)
-                .createdAt(LocalDateTime.now())
-                .build();
-        DiaryMediaVO firstMedia = DiaryMediaVO.builder()
-                .id(1L)
-                .diary(diary)
-                .type(DiaryMediaVO.Type.IMAGE)
-                .gcsUrl("uploads/images/first.jpg")
-                .fileSize(100)
-                .build();
-        DiaryMediaVO secondMedia = DiaryMediaVO.builder()
-                .id(2L)
-                .diary(diary)
-                .type(DiaryMediaVO.Type.IMAGE)
-                .gcsUrl("uploads/images/second.jpg")
-                .fileSize(200)
-                .build();
-        diary.setMedia(List.of(firstMedia, secondMedia));
-
-        given(diaryEntryRepository.findWithMediaByIdAndUser_Id(diaryId, userId)).willReturn(Optional.of(diary));
-        given(gcsStorageService.generateSignedUrl("uploads/images/first.jpg")).willReturn("signed-first");
-        given(gcsStorageService.generateSignedUrl("uploads/images/second.jpg")).willReturn("signed-second");
-
-        // when
-        DiaryResponse response = sut.getDiary(diaryId, userId);
-
-        // then
-        assertThat(response.mediaUrls()).containsExactly("signed-first", "signed-second");
-    }
-
-    @Test
     @DisplayName("존재하지 않거나 타인 소유 일기 조회 시 NoSuchElementException 발생")
     void givenNonExistentDiaryId_whenGetDiary_thenThrowNoSuchElementException() {
         // given
         Long userId = 1L;
         Long diaryId = 999L;
 
-        given(diaryEntryRepository.findWithMediaByIdAndUser_Id(diaryId, userId)).willReturn(Optional.empty());
+        given(diaryEntryRepository.findByIdAndUser_Id(diaryId, userId)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> sut.getDiary(diaryId, userId))
@@ -625,7 +583,7 @@ class DiaryServiceTest {
                 .id(2L).user(mockUser).rawContent("셋째 날").writtenAt(LocalDate.of(2026, 4, 3))
                 .createdAt(LocalDateTime.now()).build();
 
-        given(diaryEntryRepository.findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .willReturn(List.of(diary1, diary2));
 
@@ -644,7 +602,7 @@ class DiaryServiceTest {
         // given
         Long userId = 1L;
 
-        given(diaryEntryRepository.findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .willReturn(Collections.emptyList());
 

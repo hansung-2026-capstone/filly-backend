@@ -15,10 +15,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.util.List;
 import java.util.Map;
@@ -48,20 +44,6 @@ class RecommendationServiceTest {
 
     @BeforeEach
     void setUp() {
-        PlatformTransactionManager transactionManager = new PlatformTransactionManager() {
-            @Override
-            public TransactionStatus getTransaction(TransactionDefinition definition) {
-                return new SimpleTransactionStatus();
-            }
-
-            @Override
-            public void commit(TransactionStatus status) {
-            }
-
-            @Override
-            public void rollback(TransactionStatus status) {
-            }
-        };
         sut = new RecommendationService(
                 userRepository,
                 recommendationDrawRepository,
@@ -71,8 +53,7 @@ class RecommendationServiceTest {
                 recommendationGenerationAsyncService,
                 recommendationChatClient,
                 objectMapper,
-                aiObjectMapper,
-                transactionManager
+                aiObjectMapper
         );
     }
 

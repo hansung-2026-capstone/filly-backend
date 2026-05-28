@@ -20,11 +20,9 @@ import net.coboogie.vo.UserVO;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -58,7 +56,6 @@ public class RecommendationService {
     private final ChatClient recommendationChatClient;
     private final ObjectMapper objectMapper;
     private final ObjectMapper aiObjectMapper;
-    private final TransactionTemplate transactionTemplate;
 
     /**
      * RecommendationService 생성자.
@@ -72,8 +69,7 @@ public class RecommendationService {
             RecommendationGenerationAsyncService recommendationGenerationAsyncService,
             @Qualifier("recommendationChatClient") ChatClient recommendationChatClient,
             ObjectMapper objectMapper,
-            @Qualifier("aiObjectMapper") ObjectMapper aiObjectMapper,
-            PlatformTransactionManager transactionManager) {
+            @Qualifier("aiObjectMapper") ObjectMapper aiObjectMapper) {
         this.userRepository = userRepository;
         this.recommendationDrawRepository = recommendationDrawRepository;
         this.recommendationRepository = recommendationRepository;
@@ -83,7 +79,6 @@ public class RecommendationService {
         this.recommendationChatClient = recommendationChatClient;
         this.objectMapper = objectMapper;
         this.aiObjectMapper = aiObjectMapper;
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -201,73 +196,46 @@ public class RecommendationService {
      * @param drawId 추천 뽑기 세션 ID
      * @return shuffle 응답
      */
+    @Transactional
     public RecommendationShuffleResponse shuffle(Long userId, Long drawId) {
-        ShufflePreparation preparation = prepareShuffle(userId, drawId);
-        AiRecommendationCard generatedCard = generateCard(preparation.profile(), preparation.newCategory());
-        return saveShuffleCard(userId, drawId, preparation.profile(), preparation.newCategory(), generatedCard);
-    }
+        lockUser(userId);
+        RecommendationDrawVO draw = findDrawForUpdate(userId, drawId);
+        validateDailyShuffleLimit(userId);
+        if (draw.getStatus() != RecommendationDrawVO.Status.ACTIVE) {
+            throw new IllegalArgumentException("진행 중인 추천 뽑기 세션이 아닙니다.");
+        }
 
-    private ShufflePreparation prepareShuffle(Long userId, Long drawId) {
-        return transactionTemplate.execute(status -> {
-            lockUser(userId);
-            RecommendationDrawVO draw = findDrawForUpdate(userId, drawId);
-            validateDailyShuffleLimit(userId);
-            if (draw.getStatus() != RecommendationDrawVO.Status.ACTIVE) {
-                throw new IllegalArgumentException("진행 중인 추천 뽑기 세션이 아닙니다.");
-            }
+        List<RecommendationVO> activeCards = recommendationRepository
+                .findByDraw_IdAndStatusOrderByCardIndexAsc(drawId, RecommendationVO.Status.ACTIVE);
+        if (activeCards.size() != 2) {
+            throw new IllegalArgumentException("다른 추천 보기는 카드 1장을 공개한 뒤 사용할 수 있습니다.");
+        }
 
-            List<RecommendationVO> activeCards = recommendationRepository
-                    .findByDraw_IdAndStatusOrderByCardIndexAsc(drawId, RecommendationVO.Status.ACTIVE);
-            if (activeCards.size() != 2) {
-                throw new IllegalArgumentException("다른 추천 보기는 카드 1장을 공개한 뒤 사용할 수 있습니다.");
-            }
+        RecommendationProfile profile = parseProfile(draw.getProfileSnapshot());
+        RecommendationVO lastRevealed = findLastRevealedCard(drawId);
+        Set<String> excludedCategories = collectExcludedCategories(activeCards, lastRevealed);
+        String newCategory = recommendationCategorySelector.selectReplacementMainCategory(profile, excludedCategories);
+        AiRecommendationCard generatedCard = generateCard(profile, newCategory);
+        int nextRound = draw.getCurrentRound() + 1;
+        int cardIndex = findEmptyCardIndex(activeCards);
 
-            RecommendationProfile profile = parseProfile(draw.getProfileSnapshot());
-            RecommendationVO lastRevealed = findLastRevealedCard(drawId);
-            Set<String> excludedCategories = collectExcludedCategories(activeCards, lastRevealed);
-            String newCategory = recommendationCategorySelector
-                    .selectReplacementMainCategory(profile, excludedCategories);
-            return new ShufflePreparation(profile, newCategory);
-        });
-    }
+        RecommendationVO newCard = saveCard(
+                draw,
+                draw.getUser(),
+                profile,
+                generatedCard,
+                newCategory,
+                cardIndex,
+                nextRound,
+                RecommendationVO.GenerationType.SHUFFLE
+        );
 
-    private RecommendationShuffleResponse saveShuffleCard(Long userId, Long drawId, RecommendationProfile profile,
-                                                          String newCategory, AiRecommendationCard generatedCard) {
-        return transactionTemplate.execute(status -> {
-            lockUser(userId);
-            RecommendationDrawVO draw = findDrawForUpdate(userId, drawId);
-            validateDailyShuffleLimit(userId);
-            if (draw.getStatus() != RecommendationDrawVO.Status.ACTIVE) {
-                throw new IllegalArgumentException("진행 중인 추천 뽑기 세션이 아닙니다.");
-            }
+        draw.setCurrentRound(nextRound);
+        List<RecommendationVO> nextCards = new ArrayList<>(activeCards);
+        nextCards.add(newCard);
+        nextCards.sort((a, b) -> Integer.compare(a.getCardIndex(), b.getCardIndex()));
 
-            List<RecommendationVO> activeCards = recommendationRepository
-                    .findByDraw_IdAndStatusOrderByCardIndexAsc(drawId, RecommendationVO.Status.ACTIVE);
-            if (activeCards.size() != 2) {
-                throw new IllegalArgumentException("다른 추천 보기는 카드 1장을 공개한 뒤 사용할 수 있습니다.");
-            }
-
-            int nextRound = draw.getCurrentRound() + 1;
-            int cardIndex = findEmptyCardIndex(activeCards);
-
-            RecommendationVO newCard = saveCard(
-                    draw,
-                    draw.getUser(),
-                    profile,
-                    generatedCard,
-                    newCategory,
-                    cardIndex,
-                    nextRound,
-                    RecommendationVO.GenerationType.SHUFFLE
-            );
-
-            draw.setCurrentRound(nextRound);
-            List<RecommendationVO> nextCards = new ArrayList<>(activeCards);
-            nextCards.add(newCard);
-            nextCards.sort((a, b) -> Integer.compare(a.getCardIndex(), b.getCardIndex()));
-
-            return new RecommendationShuffleResponse(draw.getId(), nextRound, toBackCards(nextCards));
-        });
+        return new RecommendationShuffleResponse(draw.getId(), nextRound, toBackCards(nextCards));
     }
 
     /**
@@ -542,8 +510,5 @@ public class RecommendationService {
             @JsonAlias("searchKeyword") String searchKeyword,
             String reason
     ) {
-    }
-
-    private record ShufflePreparation(RecommendationProfile profile, String newCategory) {
     }
 }

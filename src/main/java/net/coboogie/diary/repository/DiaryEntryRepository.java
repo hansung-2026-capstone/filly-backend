@@ -1,7 +1,6 @@
 package net.coboogie.diary.repository;
 
 import net.coboogie.vo.DiaryEntryVO;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
@@ -21,13 +20,6 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntryVO, Long> 
     Optional<DiaryEntryVO> findByIdAndUser_Id(Long id, Long userId);
 
     /**
-     * 일기 단건과 첨부 미디어를 함께 조회한다.
-     * 상세 화면에서는 모든 첨부 미디어를 내려줘야 하므로 media를 명시적으로 fetch한다.
-     */
-    @EntityGraph(attributePaths = "media")
-    Optional<DiaryEntryVO> findWithMediaByIdAndUser_Id(Long id, Long userId);
-
-    /**
      * 특정 사용자의 일기 중 작성 날짜가 지정된 기간 내에 있는 목록을 작성일 오름차순으로 반환한다.
      * 월별 목록 조회 시 해당 월의 첫째 날~마지막 날을 범위로 사용한다.
      *
@@ -40,27 +32,12 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntryVO, Long> 
             Long userId, LocalDate startDate, LocalDate endDate);
 
     /**
-     * 특정 사용자의 기간 내 일기와 첨부 미디어를 함께 조회한다.
-     * 응답 DTO 변환 중 media lazy loading으로 발생하는 N+1 쿼리를 줄이기 위한 목록 조회 전용 메서드이다.
-     */
-    @EntityGraph(attributePaths = "media")
-    List<DiaryEntryVO> findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
-            Long userId, LocalDate startDate, LocalDate endDate);
-
-    /**
      * 특정 사용자의 전체 일기 목록을 반환한다.
      *
      * @param userId 조회할 사용자 ID
      * @return 해당 사용자의 전체 일기 목록
      */
     List<DiaryEntryVO> findAllByUser_Id(Long userId);
-
-    /**
-     * 특정 사용자의 전체 일기와 첨부 미디어를 함께 조회한다.
-     * 응답 DTO 변환 중 media lazy loading으로 발생하는 N+1 쿼리를 줄이기 위한 목록 조회 전용 메서드이다.
-     */
-    @EntityGraph(attributePaths = "media")
-    List<DiaryEntryVO> findWithMediaByUser_Id(Long userId);
 
     /**
      * 특정 사용자의 지정 기간 내 일기 수를 반환한다.

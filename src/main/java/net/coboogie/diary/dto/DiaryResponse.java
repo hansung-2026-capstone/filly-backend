@@ -1,12 +1,10 @@
 package net.coboogie.diary.dto;
 
 import net.coboogie.vo.DiaryEntryVO;
-import net.coboogie.vo.DiaryMediaVO;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
@@ -68,43 +66,6 @@ public record DiaryResponse(
                                 m.getFileSize(),
                                 m.getCreatedAt()
                         ))
-                        .toList();
-        List<String> mediaUrls = media.stream()
-                .map(DiaryMediaResponse::url)
-                .toList();
-
-        return new DiaryResponse(
-                diary.getId(),
-                diary.getRawContent(),
-                diary.getEmoji(),
-                diary.getStarRating(),
-                diary.getWrittenAt(),
-                diary.getCreatedAt(),
-                diary.getUpdatedAt(),
-                mediaUrls,
-                media
-        );
-    }
-
-    /**
-     * 목록 화면용 응답 DTO로 변환한다.
-     * 캘린더/아카이브 목록에서는 대표 썸네일 1장만 필요하므로 첫 번째 미디어만 서명 URL로 변환한다.
-     */
-    public static DiaryResponse fromSummary(DiaryEntryVO diary, UnaryOperator<String> urlTransformer) {
-        List<DiaryMediaResponse> media = diary.getMedia() == null ? Collections.emptyList()
-                : diary.getMedia().stream()
-                        .min(Comparator.comparing(
-                                DiaryMediaVO::getCreatedAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())
-                        ))
-                        .map(m -> new DiaryMediaResponse(
-                                m.getId(),
-                                m.getType().name(),
-                                urlTransformer.apply(m.getGcsUrl()),
-                                m.getFileSize(),
-                                m.getCreatedAt()
-                        ))
-                        .stream()
                         .toList();
         List<String> mediaUrls = media.stream()
                 .map(DiaryMediaResponse::url)

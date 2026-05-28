@@ -2,8 +2,6 @@ package net.coboogie.archive.repository;
 
 import net.coboogie.vo.ArchiveDiaryVO;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,20 +18,6 @@ public interface ArchiveDiaryRepository extends JpaRepository<ArchiveDiaryVO, Lo
      * @return 폴더 내 연결 엔티티 목록
      */
     List<ArchiveDiaryVO> findAllByFolder_IdOrderByAddedAtDesc(Long folderId);
-
-    /**
-     * 폴더 내 일기와 첨부 미디어를 함께 조회한다.
-     * 응답 DTO 변환 중 diary/media lazy loading으로 발생하는 N+1 쿼리를 줄이기 위한 목록 조회 전용 메서드이다.
-     */
-    @Query("""
-            SELECT DISTINCT ad
-            FROM ArchiveDiaryVO ad
-            JOIN FETCH ad.diary d
-            LEFT JOIN FETCH d.media
-            WHERE ad.folder.id = :folderId
-            ORDER BY ad.addedAt DESC
-            """)
-    List<ArchiveDiaryVO> findAllWithDiaryAndMediaByFolderId(@Param("folderId") Long folderId);
 
     /**
      * 폴더-일기 연결 단건을 조회한다.

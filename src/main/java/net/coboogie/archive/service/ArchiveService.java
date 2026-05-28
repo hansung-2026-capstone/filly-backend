@@ -132,9 +132,9 @@ public class ArchiveService {
     @Transactional(readOnly = true)
     public List<DiaryResponse> getDiariesInFolder(Long userId, Long folderId) {
         findFolder(folderId, userId);
-        return archiveDiaryRepository.findAllWithDiaryAndMediaByFolderId(folderId)
+        return archiveDiaryRepository.findAllByFolder_IdOrderByAddedAtDesc(folderId)
                 .stream()
-                .map(ad -> DiaryResponse.fromSummary(ad.getDiary(), gcsStorageService::generateSignedUrl))
+                .map(ad -> DiaryResponse.from(ad.getDiary(), gcsStorageService::generateSignedUrl))
                 .toList();
     }
 
