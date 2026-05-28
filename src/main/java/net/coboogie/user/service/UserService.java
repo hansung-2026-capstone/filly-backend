@@ -39,15 +39,15 @@ public class UserService {
     public UserResponse getMe(Long userId) {
         UserVO user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        String currentAvatarUrl = toSignedUrl(user.getCurrentAvatarUrl());
+        String currentAvatarUrl = toPublicAvatarUrl(user.getCurrentAvatarUrl());
         return UserResponse.from(user, currentAvatarUrl);
     }
 
-    private String toSignedUrl(String blobName) {
-        if (blobName == null || blobName.isBlank()) {
-            return blobName;
+    private String toPublicAvatarUrl(String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) {
+            return avatarUrl;
         }
-        return gcsStorageService.generateSignedUrl(blobName);
+        return gcsStorageService.generatePublicAvatarUrl(avatarUrl);
     }
 
     /**
