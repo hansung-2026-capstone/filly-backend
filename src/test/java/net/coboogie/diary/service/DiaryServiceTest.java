@@ -583,7 +583,7 @@ class DiaryServiceTest {
                 .id(2L).user(mockUser).rawContent("셋째 날").writtenAt(LocalDate.of(2026, 4, 3))
                 .createdAt(LocalDateTime.now()).build();
 
-        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+        given(diaryEntryRepository.findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .willReturn(List.of(diary1, diary2));
 
@@ -614,7 +614,7 @@ class DiaryServiceTest {
                 .build();
         diary.setMedia(List.of(media));
 
-        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+        given(diaryEntryRepository.findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .willReturn(List.of(diary));
         given(gcsStorageService.generateSignedUrl("uploads/images/photo.jpg"))
@@ -635,7 +635,7 @@ class DiaryServiceTest {
         // given
         Long userId = 1L;
 
-        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+        given(diaryEntryRepository.findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .willReturn(Collections.emptyList());
 
