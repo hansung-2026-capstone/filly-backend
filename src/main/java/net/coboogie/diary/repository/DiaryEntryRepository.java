@@ -1,6 +1,7 @@
 package net.coboogie.diary.repository;
 
 import net.coboogie.vo.DiaryEntryVO;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
@@ -29,6 +30,18 @@ public interface DiaryEntryRepository extends JpaRepository<DiaryEntryVO, Long> 
      * @return 해당 기간의 일기 목록 (작성일 오름차순)
      */
     List<DiaryEntryVO> findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+            Long userId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * 월별 목록 응답 생성 시 미디어 N+1 조회를 방지하기 위해 첨부 미디어를 함께 조회한다.
+     *
+     * @param userId    조회할 사용자 ID
+     * @param startDate 기간 시작일 (inclusive)
+     * @param endDate   기간 종료일 (inclusive)
+     * @return 첨부 미디어가 초기화된 해당 기간의 일기 목록
+     */
+    @EntityGraph(attributePaths = "media")
+    List<DiaryEntryVO> findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
             Long userId, LocalDate startDate, LocalDate endDate);
 
     /**

@@ -403,7 +403,7 @@ public class DiaryService {
         LocalDate endDate = yearMonth.atEndOfMonth();
 
         List<DiaryEntryVO> diaries = diaryEntryRepository
-                .findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate);
+                .findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate);
         Map<String, String> signedUrlsByBlobName = generateSignedUrlsInParallel(diaries);
 
         return diaries.stream()
