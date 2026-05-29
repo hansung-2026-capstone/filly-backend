@@ -583,7 +583,7 @@ class DiaryServiceTest {
                 .id(2L).user(mockUser).rawContent("셋째 날").writtenAt(LocalDate.of(2026, 4, 3))
                 .createdAt(LocalDateTime.now()).build();
 
-        given(diaryEntryRepository.findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .willReturn(List.of(diary1, diary2));
 
@@ -597,12 +597,45 @@ class DiaryServiceTest {
     }
 
     @Test
+    @DisplayName("월별 일기 목록 조회 시 미디어 URL을 signed URL로 변환한다")
+    void givenDiariesWithMedia_whenGetDiariesByMonth_thenReturnSignedMediaUrls() {
+        // given
+        Long userId = 1L;
+        UserVO mockUser = UserVO.builder().id(userId).oauthProvider("google").oauthId("abc").build();
+        DiaryEntryVO diary = DiaryEntryVO.builder()
+                .id(1L).user(mockUser).rawContent("이미지 일기").writtenAt(LocalDate.of(2026, 4, 1))
+                .createdAt(LocalDateTime.now()).build();
+        DiaryMediaVO media = DiaryMediaVO.builder()
+                .id(10L)
+                .diary(diary)
+                .type(DiaryMediaVO.Type.IMAGE)
+                .gcsUrl("uploads/images/photo.jpg")
+                .fileSize(1024)
+                .build();
+        diary.setMedia(List.of(media));
+
+        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+                userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
+                .willReturn(List.of(diary));
+        given(gcsStorageService.generateSignedUrl("uploads/images/photo.jpg"))
+                .willReturn("https://storage.googleapis.com/bucket/uploads/images/photo.jpg?sig=abc");
+
+        // when
+        List<DiaryResponse> result = sut.getDiariesByMonth(userId, 2026, 4);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).mediaUrls())
+                .containsExactly("https://storage.googleapis.com/bucket/uploads/images/photo.jpg?sig=abc");
+    }
+
+    @Test
     @DisplayName("해당 월에 일기가 없으면 빈 목록 반환")
     void givenNoDiariesInMonth_whenGetDiariesByMonth_thenReturnEmptyList() {
         // given
         Long userId = 1L;
 
-        given(diaryEntryRepository.findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
+        given(diaryEntryRepository.findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(
                 userId, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)))
                 .willReturn(Collections.emptyList());
 

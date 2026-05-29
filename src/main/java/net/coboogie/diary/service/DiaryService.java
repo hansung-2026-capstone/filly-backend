@@ -30,18 +30,25 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 import ws.schild.jave.MultimediaObject;
 
+import jakarta.annotation.PreDestroy;
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.io.File;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 /**
  * 일기 도메인 핵심 비즈니스 로직 서비스.
@@ -55,6 +62,7 @@ import java.util.Objects;
 public class DiaryService {
 
     private static final int MAX_DRAFT_IMAGE_COUNT = 4;
+    private static final int SIGNED_URL_PARALLELISM = 4;
     private static final long MAX_DRAFT_VOICE_DURATION_MS = 60_000L;
     private static final List<String> SUPPORTED_DRAFT_IMAGE_TYPES =
             List.of("image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif");
@@ -74,6 +82,18 @@ public class DiaryService {
     private final ArchiveEntryRepository archiveEntryRepository;
     private final DiaryAnalysisAsyncService diaryAnalysisAsyncService;
     private final ObjectMapper objectMapper;
+    private final ExecutorService signedUrlExecutor = Executors.newFixedThreadPool(
+            SIGNED_URL_PARALLELISM,
+            task -> {
+                Thread thread = new Thread(task, "signed-url-worker");
+                thread.setDaemon(true);
+                return thread;
+            });
+
+    @PreDestroy
+    void shutdownSignedUrlExecutor() {
+        signedUrlExecutor.shutdown();
+    }
 
     /**
      * 일기를 DB에 저장하고 저장된 결과를 반환한다.
@@ -382,11 +402,48 @@ public class DiaryService {
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
 
-        return diaryEntryRepository
-                .findWithMediaByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate)
-                .stream()
-                .map(d -> DiaryResponse.fromSummary(d, gcsStorageService::generateSignedUrl))
+        List<DiaryEntryVO> diaries = diaryEntryRepository
+                .findByUser_IdAndWrittenAtBetweenOrderByWrittenAtAsc(userId, startDate, endDate);
+        Map<String, String> signedUrlsByBlobName = generateSignedUrlsInParallel(diaries);
+
+        return diaries.stream()
+                .map(d -> DiaryResponse.from(d, blobName ->
+                        signedUrlsByBlobName.getOrDefault(blobName, gcsStorageService.generateSignedUrl(blobName))))
                 .toList();
+    }
+
+    private Map<String, String> generateSignedUrlsInParallel(List<DiaryEntryVO> diaries) {
+        List<String> blobNames = diaries.stream()
+                .flatMap(diary -> safeMedia(diary).stream())
+                .map(DiaryMediaVO::getGcsUrl)
+                .filter(Objects::nonNull)
+                .filter(blobName -> !blobName.isBlank())
+                .distinct()
+                .toList();
+        if (blobNames.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<CompletableFuture<Map.Entry<String, String>>> futures = blobNames.stream()
+                .map(blobName -> CompletableFuture.supplyAsync(
+                        () -> Map.entry(blobName, gcsStorageService.generateSignedUrl(blobName)),
+                        signedUrlExecutor))
+                .toList();
+
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+    }
+
+    private List<DiaryMediaVO> safeMedia(DiaryEntryVO diary) {
+        if (diary.getMedia() == null) {
+            return Collections.emptyList();
+        }
+        return diary.getMedia();
     }
 
     /**
@@ -686,9 +743,9 @@ public class DiaryService {
     public List<DiaryResponse> getAllDiaries(Long userId){
 
 
-        return diaryEntryRepository.findWithMediaByUser_Id(userId)
+        return diaryEntryRepository.findAllByUser_Id(userId)
                 .stream()
-                .map(d -> DiaryResponse.fromSummary(d, gcsStorageService::generateSignedUrl))
+                .map(d -> DiaryResponse.from(d, gcsStorageService::generateSignedUrl))
                 .toList();
 
     }

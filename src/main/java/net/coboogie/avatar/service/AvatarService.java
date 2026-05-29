@@ -85,21 +85,20 @@ public class AvatarService {
             throw new IllegalStateException("아바타 이미지 생성 중 인터럽트가 발생했습니다.", e);
         }
 
-        String blobPath = gcsStorageService.uploadBytes(imageBytes, "avatars", "avatar.png", "image/png");
-        String signedUrl = gcsStorageService.generateSignedUrl(blobPath);
+        String publicUrl = gcsStorageService.uploadPublicAvatarBytes(imageBytes, "avatar.png", "image/png");
 
         AvatarHistoryVO history = AvatarHistoryVO.builder()
                 .user(user)
                 .personaSnapshot(persona)
-                .gcsUrl(blobPath)
+                .gcsUrl(publicUrl)
                 .status(AvatarHistoryVO.Status.COMPLETED)
                 .build();
         AvatarHistoryVO saved = avatarHistoryRepository.save(history);
 
-        user.setCurrentAvatarUrl(blobPath);
+        user.setCurrentAvatarUrl(publicUrl);
         log.info("아바타 생성 완료: userId={}, avatarHistoryId={}", userId, saved.getId());
 
-        return new AvatarResponse(saved.getId(), signedUrl);
+        return new AvatarResponse(saved.getId(), publicUrl);
     }
 
     /**
@@ -125,19 +124,18 @@ public class AvatarService {
 
             byte[] imageBytes = generateImageBytes(userId, persona);
 
-            String blobPath = gcsStorageService.uploadBytes(imageBytes, "avatars", "avatar.png", "image/png");
-            String signedUrl = gcsStorageService.generateSignedUrl(blobPath);
+            String publicUrl = gcsStorageService.uploadPublicAvatarBytes(imageBytes, "avatar.png", "image/png");
 
             AvatarHistoryVO history = AvatarHistoryVO.builder()
                     .user(user)
                     .personaSnapshot(persona)
-                    .gcsUrl(blobPath)
+                    .gcsUrl(publicUrl)
                     .status(AvatarHistoryVO.Status.COMPLETED)
                     .build();
             avatarHistoryRepository.save(history);
 
-            user.setCurrentAvatarUrl(blobPath);
-            log.info("아바타 비동기 생성 완료: userId={}, signedUrl={}", userId, signedUrl);
+            user.setCurrentAvatarUrl(publicUrl);
+            log.info("아바타 비동기 생성 완료: userId={}, publicUrl={}", userId, publicUrl);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
