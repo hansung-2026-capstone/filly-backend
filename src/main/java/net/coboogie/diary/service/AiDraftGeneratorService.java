@@ -3,10 +3,14 @@ package net.coboogie.diary.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import net.coboogie.diary.dto.AiAnalysisResult;
 import net.coboogie.diary.dto.AiDraftResult;
+import net.coboogie.diary.dto.AiDraftTextResult;
+import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.exception.AiDraftGenerationException;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.content.Media;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
@@ -32,16 +36,101 @@ import java.util.Locale;
 public class AiDraftGeneratorService {
 
     private final ChatClient chatClient;
+    private final ChatClient diaryDraftChatClient;
+    private final ChatClient diaryAnalysisChatClient;
     private final ObjectMapper objectMapper;
 
-    public AiDraftGeneratorService(ChatClient chatClient,
+    @Autowired
+    public AiDraftGeneratorService(@Qualifier("chatClient") ChatClient chatClient,
+                                   @Qualifier("diaryDraftChatClient") ChatClient diaryDraftChatClient,
+                                   @Qualifier("diaryAnalysisChatClient") ChatClient diaryAnalysisChatClient,
                                    @Qualifier("aiObjectMapper") ObjectMapper objectMapper) {
         this.chatClient = chatClient;
+        this.diaryDraftChatClient = diaryDraftChatClient;
+        this.diaryAnalysisChatClient = diaryAnalysisChatClient;
         this.objectMapper = objectMapper;
+    }
+
+    AiDraftGeneratorService(ChatClient chatClient, ObjectMapper objectMapper) {
+        this(chatClient, chatClient, chatClient, objectMapper);
     }
 
     private static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy년 M월 d일 EEEE", Locale.KOREAN);
+
+    /**
+     * Generate only the user-visible diary draft text. Analysis is intentionally excluded
+     * so the draft API can return quickly and saved diary analysis can run asynchronously.
+     */
+    public String generateDraftTextMultimodal(String textContent, List<MultipartFile> images,
+                                              MultipartFile voice, LocalDate writtenAt,
+                                              String gender, String ageGroup, String aiDraftTone) {
+        String userMessage = buildDraftUserMessage(textContent, null, voice,
+                writtenAt, gender, ageGroup, aiDraftTone);
+        long mediaStartedAt = System.currentTimeMillis();
+        Media[] media = buildMedia(null, voice);
+        long mediaBuildElapsedMs = System.currentTimeMillis() - mediaStartedAt;
+        long startedAt = System.currentTimeMillis();
+        log.info("Gemini diary draft text request start writtenAt={} textLength={} mediaCount={} mediaBuildMs={} hasVoice={}",
+                writtenAt,
+                textContent == null ? 0 : textContent.length(),
+                media.length,
+                mediaBuildElapsedMs,
+                voice != null && !voice.isEmpty());
+
+        String raw = diaryDraftChatClient.prompt()
+                .user(user -> {
+                    user.text(userMessage);
+                    if (media.length > 0) {
+                        user.media(media);
+                    }
+                })
+                .call()
+                .content();
+
+        AiDraftTextResult result = parseDraftTextWithFallback(raw);
+        log.info("Gemini diary draft text request complete elapsedMs={} generatedTextLength={}",
+                System.currentTimeMillis() - startedAt,
+                result.generatedText() == null ? 0 : result.generatedText().length());
+        return result.generatedText();
+    }
+
+    /**
+     * Analyze a saved diary without regenerating the draft text.
+     */
+    public DiaryDraftResponse.AiAnalysis analyzeDiaryMultimodal(String textContent, List<MultipartFile> images,
+                                                                MultipartFile voice, LocalDate writtenAt,
+                                                                String gender, String ageGroup,
+                                                                String aiDraftTone) {
+        String userMessage = buildAnalysisUserMessage(textContent, null, voice,
+                writtenAt, gender, ageGroup, aiDraftTone);
+        long mediaStartedAt = System.currentTimeMillis();
+        Media[] media = buildMedia(null, voice);
+        long mediaBuildElapsedMs = System.currentTimeMillis() - mediaStartedAt;
+        long startedAt = System.currentTimeMillis();
+        log.info("Gemini diary analysis request start writtenAt={} textLength={} mediaCount={} mediaBuildMs={} hasVoice={}",
+                writtenAt,
+                textContent == null ? 0 : textContent.length(),
+                media.length,
+                mediaBuildElapsedMs,
+                voice != null && !voice.isEmpty());
+
+        String raw = diaryAnalysisChatClient.prompt()
+                .user(user -> {
+                    user.text(userMessage);
+                    if (media.length > 0) {
+                        user.media(media);
+                    }
+                })
+                .call()
+                .content();
+
+        AiAnalysisResult result = parseAnalysisWithFallback(raw);
+        log.info("Gemini diary analysis request complete elapsedMs={} happinessIndex={}",
+                System.currentTimeMillis() - startedAt,
+                result.happinessIndex());
+        return result.toResponse();
+    }
 
     /**
      * 사용자 입력을 기반으로 AI 일기 초안을 생성한다.
@@ -211,6 +300,73 @@ public class AiDraftGeneratorService {
         );
     }
 
+    String buildDraftUserMessage(String textContent, List<MultipartFile> images,
+                                 MultipartFile voice, LocalDate writtenAt,
+                                 String gender, String ageGroup, String aiDraftTone) {
+        boolean hasVoice = voice != null && !voice.isEmpty();
+        return """
+                [Written date]
+                %s
+
+                [User settings]
+                gender: %s
+                age group: %s
+                preferred tone: %s
+
+                [Input]
+                text memo:
+                %s
+
+                voice: %s
+
+                [Rules]
+                - Return only generatedText JSON.
+                - Write generatedText in Korean.
+                - Use user settings only for style.
+                - Do not include emotion/category/pattern analysis.
+                """.formatted(
+                writtenAt.format(DATE_FORMATTER),
+                displayPreference(gender),
+                displayPreference(ageGroup),
+                describeTone(aiDraftTone),
+                orNone(textContent),
+                hasVoice ? "present" : "none"
+        );
+    }
+
+    String buildAnalysisUserMessage(String textContent, List<MultipartFile> images,
+                                    MultipartFile voice, LocalDate writtenAt,
+                                    String gender, String ageGroup, String aiDraftTone) {
+        boolean hasVoice = voice != null && !voice.isEmpty();
+        return """
+                [Written date]
+                %s
+
+                [User settings]
+                gender: %s
+                age group: %s
+                preferred tone: %s
+
+                [Diary text]
+                %s
+
+                [Attachments]
+                voice: %s
+
+                [Rules]
+                - Return only analysis JSON.
+                - Do not generate or rewrite diary text.
+                - Use the diary text as the primary source.
+                """.formatted(
+                writtenAt.format(DATE_FORMATTER),
+                displayPreference(gender),
+                displayPreference(ageGroup),
+                describeTone(aiDraftTone),
+                orNone(textContent),
+                hasVoice ? "present" : "none"
+        );
+    }
+
     private Media[] buildMedia(List<MultipartFile> images, MultipartFile voice) {
         List<Media> media = new ArrayList<>();
         if (images != null) {
@@ -293,6 +449,26 @@ public class AiDraftGeneratorService {
      * 응답 문자열에서 JSON 객체 부분만 추출한다.
      * ```json ... ``` 마크다운 코드블록을 제거하고 첫 { 부터 마지막 } 까지 반환한다.
      */
+    private AiDraftTextResult parseDraftTextWithFallback(String raw) {
+        String json = extractJson(raw);
+        try {
+            return objectMapper.readValue(json, AiDraftTextResult.class);
+        } catch (JsonProcessingException e) {
+            log.warn("Gemini draft text JSON parsing failed. raw={}", abbreviate(raw, 1000), e);
+            throw new AiDraftGenerationException("AI draft response could not be parsed.", e);
+        }
+    }
+
+    private AiAnalysisResult parseAnalysisWithFallback(String raw) {
+        String json = extractJson(raw);
+        try {
+            return objectMapper.readValue(json, AiAnalysisResult.class);
+        } catch (JsonProcessingException e) {
+            log.warn("Gemini analysis JSON parsing failed. raw={}", abbreviate(raw, 1000), e);
+            throw new AiDraftGenerationException("AI analysis response could not be parsed.", e);
+        }
+    }
+
     private String extractJson(String raw) {
         raw = raw.replaceAll("(?s)```json\\s*", "").replaceAll("```", "").strip();
         int start = raw.indexOf('{');
