@@ -77,6 +77,26 @@ ApiResponse.ok()      // {"success":true,"data":null}
 | Diary | GET | `/diaries/all-diaries` | 전체 조회 |
 | Diary | PUT | `/diaries/{id}` | rawContent/emoji 수정 |
 | Diary | DELETE | `/diaries/{id}` | 삭제 |
+| Diary V2 | POST | `/v2/diaries/draft` | AI 일기 초안 생성 v2 (Gemini 멀티모달, STT/BLIP 전처리 없음) |
+| Avatar | POST | `/avatars/generate` | 최신 페르소나 기반 아바타 이미지 생성 (10~30초) |
+| Persona | GET | `/personas` | 페르소나 이력 조회 (조건 충족 시 자동 생성) |
+| Share | GET | `/share/id-card` | ID 카드 조회 (아바타 URL·닉네임·키워드) |
+| Share | GET | `/share/receipt?year=&month=` | 월별 영수증 조회 |
+| Recommendation | POST | `/recommendations/draws` | 추천 뽑기 시작 (카드 3장 생성) |
+| Recommendation | GET | `/recommendations/draws/{drawId}` | 추천 뽑기 상태 조회 |
+| Recommendation | POST | `/recommendations/draws/{drawId}/cards/{cardId}/reveal` | 추천 카드 공개 |
+| Recommendation | POST | `/recommendations/draws/{drawId}/shuffle` | 다른 추천 보기 (하루 3회 제한) |
+| Recommendation | GET | `/recommendations/history` | 공개한 추천 카드 이력 |
+| Archive | POST | `/archives` | 폴더 생성 |
+| Archive | GET | `/archives` | 폴더 목록 (일기 수 포함) |
+| Archive | PATCH | `/archives/{folderId}` | 폴더 이름·색상 수정 |
+| Archive | DELETE | `/archives/{folderId}` | 폴더 삭제 (연결만 제거) |
+| Archive | GET | `/archives/{folderId}/diaries` | 폴더 내 일기 목록 |
+| Archive | POST | `/archives/{folderId}/diaries` | 폴더에 일기 추가 |
+| Archive | DELETE | `/archives/{folderId}/diaries/{diaryId}` | 폴더에서 일기 제거 |
+| Stats | GET | `/stats/monthly?year=&month=` | 월별 통계 조회 (캐시 미존재 시 즉시 집계) |
+
+> Diary V2는 Base `/api/v2`, 나머지는 모두 `/api/v1`.
 
 ## AI 설정
 

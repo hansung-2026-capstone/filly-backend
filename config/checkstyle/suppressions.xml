@@ -30,4 +30,6 @@
     <suppress files="ServletInitializer\.java" checks=".*"/>
     <!-- 기존 테스트 파일 전체 -->
     <suppress files="[\\/]test[\\/]" checks=".*"/>
+    <!-- Spring Data JPA 리포지토리: 중첩 프로퍼티 탐색용 언더스코어 허용 (findByDraw_Id = draw.id) -->
+    <suppress files="[\\/]repository[\\/].*Repository\.java" checks="MethodName"/>
 </suppressions>
