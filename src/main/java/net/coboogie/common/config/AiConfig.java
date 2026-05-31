@@ -24,6 +24,12 @@ public class AiConfig {
     @Value("classpath:prompts/diary-system.txt")
     private Resource diarySystemPrompt;
 
+    @Value("classpath:prompts/diary-draft-system.txt")
+    private Resource diaryDraftSystemPrompt;
+
+    @Value("classpath:prompts/diary-analysis-system.txt")
+    private Resource diaryAnalysisSystemPrompt;
+
     @Value("classpath:prompts/persona-system.txt")
     private Resource personaSystemPrompt;
 
@@ -37,6 +43,22 @@ public class AiConfig {
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) throws IOException {
         String systemPrompt = diarySystemPrompt.getContentAsString(StandardCharsets.UTF_8);
+        return builder.defaultSystem(systemPrompt).build();
+    }
+
+    /** Fast diary draft ChatClient that returns only generatedText. */
+    @Bean
+    @Qualifier("diaryDraftChatClient")
+    public ChatClient diaryDraftChatClient(ChatClient.Builder builder) throws IOException {
+        String systemPrompt = diaryDraftSystemPrompt.getContentAsString(StandardCharsets.UTF_8);
+        return builder.defaultSystem(systemPrompt).build();
+    }
+
+    /** Saved diary analysis ChatClient that returns only analysis JSON. */
+    @Bean
+    @Qualifier("diaryAnalysisChatClient")
+    public ChatClient diaryAnalysisChatClient(ChatClient.Builder builder) throws IOException {
+        String systemPrompt = diaryAnalysisSystemPrompt.getContentAsString(StandardCharsets.UTF_8);
         return builder.defaultSystem(systemPrompt).build();
     }
 

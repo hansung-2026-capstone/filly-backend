@@ -225,7 +225,8 @@ public class DiaryController {
 	}
 
 	private DiaryDraftResponse.AiAnalysis parseAiAnalysis(String aiAnalysisJson) {
-		if (aiAnalysisJson == null || aiAnalysisJson.isBlank()) {
+		if (aiAnalysisJson == null || aiAnalysisJson.isBlank()
+				|| "null".equalsIgnoreCase(aiAnalysisJson.trim())) {
 			return null;
 		}
 		try {

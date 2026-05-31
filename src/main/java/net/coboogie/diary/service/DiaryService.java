@@ -128,7 +128,7 @@ public class DiaryService {
 
         DiaryDraftResponse.AiAnalysis aiAnalysis = command.aiAnalysis();
         if (aiAnalysis == null) {
-            scheduleAnalysisAfterCommit(saved.getId(), command, user);
+            scheduleAnalysisAfterCommitIfAnalyzable(saved.getId(), command, user);
         } else {
             saveEmotionAnalysis(saved, aiAnalysis);
         }
@@ -192,16 +192,18 @@ public class DiaryService {
         }
     }
 
-    private void scheduleAnalysisAfterCommit(Long diaryId, DiarySaveCommand command, UserVO user) {
-        List<DiaryAnalysisAsyncService.AnalysisImage> images = copyAnalysisImages(command.images());
+    private void scheduleAnalysisAfterCommitIfAnalyzable(Long diaryId, DiarySaveCommand command, UserVO user) {
+        if (!hasTextContent(command)) {
+            log.info("일기 AI 분석 건너뜀: 텍스트 입력 없음 diaryId={}", diaryId);
+            return;
+        }
         Runnable task = () -> diaryAnalysisAsyncService.analyzeAndSaveAsync(
                 diaryId,
                 command.rawContent(),
                 command.writtenAt(),
                 user.getGender(),
                 user.getAgeGroup(),
-                user.getAiDraftTone(),
-                images
+                user.getAiDraftTone()
         );
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -214,28 +216,6 @@ public class DiaryService {
             return;
         }
         task.run();
-    }
-
-    private List<DiaryAnalysisAsyncService.AnalysisImage> copyAnalysisImages(List<MultipartFile> images) {
-        if (images == null || images.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<DiaryAnalysisAsyncService.AnalysisImage> copies = new ArrayList<>();
-        for (MultipartFile image : images) {
-            if (image == null || image.isEmpty()) {
-                continue;
-            }
-            try {
-                copies.add(new DiaryAnalysisAsyncService.AnalysisImage(
-                        image.getBytes(),
-                        image.getOriginalFilename(),
-                        image.getContentType()
-                ));
-            } catch (IOException e) {
-                log.warn("AI 분석용 이미지 복사 실패 filename={}", image.getOriginalFilename(), e);
-            }
-        }
-        return copies;
     }
 
     /**
@@ -576,9 +556,15 @@ public class DiaryService {
                 .map(gcsStorageService::generateSignedUrl)
                 .toList();
 
+        if (!hasText && !hasVoice) {
+            log.info("AI draft skipped because only images were provided userId={} mediaCount={}",
+                    command.userId(), mediaUrls.size());
+            return new DiaryDraftResponse("", null, mediaUrls);
+        }
+
         AiDraftResult aiResult = aiDraftGeneratorService.generate(
                 command.textContent(),
-                command.images(),
+                null,
                 command.voice(),
                 command.writtenAt(),
                 user.getGender(),
@@ -607,24 +593,29 @@ public class DiaryService {
         log.info("AI draft v2 start userId={} writtenAt={} hasText={} imageCount={} hasVoice={}",
                 command.userId(), command.writtenAt(), hasText, imageCount, hasVoice);
 
-        List<String> blobPaths = uploadImages(command.images());
-        List<String> mediaUrls = blobPaths.stream()
-                .map(gcsStorageService::generateSignedUrl)
-                .toList();
+        if (!hasText && !hasVoice) {
+            log.info("AI draft v2 skipped because only images were provided userId={} imageCount={} elapsedMs={}",
+                    command.userId(), imageCount,
+                    System.currentTimeMillis() - startedAt);
+            return new DiaryDraftResponse("", null, Collections.emptyList());
+        }
 
-        AiDraftResult aiResult = aiDraftGeneratorService.generateMultimodal(
+        long aiStartedAt = System.currentTimeMillis();
+        String generatedText = aiDraftGeneratorService.generateDraftTextMultimodal(
                 command.textContent(),
-                command.images(),
+                null,
                 command.voice(),
                 command.writtenAt(),
                 user.getGender(),
                 user.getAgeGroup(),
                 user.getAiDraftTone()
         );
-        log.info("AI draft v2 complete userId={} mediaCount={} elapsedMs={}",
-                command.userId(), mediaUrls.size(), System.currentTimeMillis() - startedAt);
+        long aiElapsedMs = System.currentTimeMillis() - aiStartedAt;
+        log.info("AI draft v2 complete userId={} imageCount={} aiMs={} elapsedMs={}",
+                command.userId(), imageCount, aiElapsedMs,
+                System.currentTimeMillis() - startedAt);
 
-        return new DiaryDraftResponse(aiResult.generatedText(), toAiAnalysis(aiResult), mediaUrls);
+        return new DiaryDraftResponse(generatedText, null, Collections.emptyList());
     }
 
     /**
