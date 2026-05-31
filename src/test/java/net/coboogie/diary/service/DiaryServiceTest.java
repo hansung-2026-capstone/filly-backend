@@ -111,7 +111,7 @@ class DiaryServiceTest {
     }
 
     @Test
-    @DisplayName("이미지 입력 시 GCS 업로드 후 mediaUrls 포함하여 초안 반환")
+    @DisplayName("image-only legacy draft uploads images but skips AI")
     void givenImagesProvided_whenCreateDraft_thenUploadToGcsAndIncludeMediaUrls() throws IOException {
         // given
         MultipartFile mockImage = mock(MultipartFile.class);
@@ -123,31 +123,22 @@ class DiaryServiceTest {
 
         String blobPath = "uploads/images/uuid_photo.jpg";
         String signedUrl = "https://storage.googleapis.com/filly-media-bucket/" + blobPath + "?X-Goog-Signature=abc";
-        AiDraftResult aiResult = new AiDraftResult(
-                "이미지 속 풍경이 아름다웠다.",
-                List.of(new AiDraftResult.EmotionScore("평온", 0.7f)),
-                60,
-                List.of(), List.of(), List.of(), List.of(),
-                new AiDraftResult.Patterns("오후", 5, "혼자", false, null, "없음", "보통", "언급없음"),
-                "잔잔한 하루", "실시간"
-        );
-
         given(gcsStorageService.upload(mockImage, "uploads/images")).willReturn(blobPath);
         given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
         UserVO mockUser = UserVO.builder().id(1L).oauthProvider("google").oauthId("abc").build();
         given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
-        given(aiDraftGeneratorService.generate(any(), any(), any(), any(), any(), any(), any()))
-                .willReturn(aiResult);
 
         // when
         DiaryDraftResponse response = sut.createDraft(command);
 
         // then
+        assertThat(response.generatedText()).isEmpty();
+        assertThat(response.aiAnalysis()).isNull();
         assertThat(response.mediaUrls()).containsExactly(signedUrl);
         verify(gcsStorageService).upload(mockImage, "uploads/images");
         verify(gcsStorageService).generateSignedUrl(blobPath);
+        verifyNoInteractions(aiDraftGeneratorService);
     }
-
     @Test
     @DisplayName("v2 텍스트만 입력 시 STT와 BLIP 없이 멀티모달 AI 초안 반환")
     void givenTextOnlyInput_whenCreateDraftV2_thenUseMultimodalGeneratorWithoutPreprocessing() {
@@ -179,24 +170,25 @@ class DiaryServiceTest {
                 .aiDraftTone("warm")
                 .build();
         given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
-        given(aiDraftGeneratorService.generateMultimodal(anyString(), any(), any(), any(), any(), any(), any()))
-                .willReturn(aiResult);
+        given(aiDraftGeneratorService.generateDraftTextMultimodal(anyString(), any(), any(), any(), any(), any(), any()))
+                .willReturn(aiResult.generatedText());
 
         // when
         DiaryDraftResponse response = sut.createDraftV2(command);
 
         // then
         assertThat(response.generatedText()).isEqualTo("오늘은 날씨가 좋아 마음도 가벼웠다.");
+        assertThat(response.aiAnalysis()).isNull();
         assertThat(response.mediaUrls()).isEmpty();
-        verify(aiDraftGeneratorService).generateMultimodal(
+        verify(aiDraftGeneratorService).generateDraftTextMultimodal(
                 eq("오늘은 날씨가 좋았다"), isNull(), isNull(), eq(WRITTEN_AT),
                 eq("female"), eq("20대"), eq("warm"));
         verifyNoInteractions(gcsStorageService);
     }
 
     @Test
-    @DisplayName("v2 이미지 입력 시 BLIP 없이 GCS 업로드 URL과 멀티모달 AI 초안 반환")
-    void givenImagesProvided_whenCreateDraftV2_thenUploadAndUseOriginalImages() throws IOException {
+    @DisplayName("v2 image-only draft skips AI and image upload")
+    void givenOnlyImagesProvided_whenCreateDraftV2_thenSkipAiAndReturnEmptyMediaUrls() {
         // given
         MockMultipartFile image = new MockMultipartFile(
                 "images", "photo.jpg", "image/jpeg", "fake-image".getBytes());
@@ -205,30 +197,18 @@ class DiaryServiceTest {
                 .images(List.of(image))
                 .writtenAt(WRITTEN_AT)
                 .build();
-        String blobPath = "uploads/images/uuid_photo.jpg";
-        String signedUrl = "https://storage.googleapis.com/filly-media-bucket/" + blobPath;
-        AiDraftResult aiResult = new AiDraftResult(
-                "사진 속 순간을 떠올리며 하루를 정리했다.",
-                List.of(), 60, List.of(), List.of(), List.of(), List.of(),
-                new AiDraftResult.Patterns("오후", 5, "혼자", false, null, "없음", "보통", "언급없음"),
-                "사진으로 남긴 하루", "실시간"
-        );
         UserVO mockUser = UserVO.builder().id(1L).oauthProvider("google").oauthId("abc").build();
         given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
-        given(gcsStorageService.upload(image, "uploads/images")).willReturn(blobPath);
-        given(gcsStorageService.generateSignedUrl(blobPath)).willReturn(signedUrl);
-        given(aiDraftGeneratorService.generateMultimodal(any(), anyList(), any(), any(), any(), any(), any()))
-                .willReturn(aiResult);
 
         // when
         DiaryDraftResponse response = sut.createDraftV2(command);
 
         // then
-        assertThat(response.mediaUrls()).containsExactly(signedUrl);
-        verify(aiDraftGeneratorService).generateMultimodal(
-                isNull(), eq(List.of(image)), isNull(), eq(WRITTEN_AT), any(), any(), any());
+        assertThat(response.generatedText()).isEmpty();
+        assertThat(response.aiAnalysis()).isNull();
+        assertThat(response.mediaUrls()).isEmpty();
+        verifyNoInteractions(gcsStorageService, aiDraftGeneratorService);
     }
-
     @Test
     @DisplayName("v2 이미지는 최대 4장까지만 허용한다")
     void givenTooManyImages_whenCreateDraftV2_thenThrowIllegalArgumentException() {
@@ -329,8 +309,7 @@ class DiaryServiceTest {
                 eq(WRITTEN_AT),
                 eq("none"),
                 eq("none"),
-                eq("none"),
-                eq(Collections.emptyList()));
+                eq("none"));
         verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any(), any(), any(), any());
         verify(aiEmotionAnalysisRepository, never()).save(any(AiEmotionAnalysisVO.class));
         verify(aiDiaryResultRepository, never()).save(any());
