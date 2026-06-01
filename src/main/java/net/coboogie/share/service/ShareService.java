@@ -64,16 +64,16 @@ public class ShareService {
 
         List<AiEmotionAnalysisVO> analyses = aiEmotionAnalysisRepository.findByDiary_User_Id(userId);
         List<String> keywords = extractKeywords(analyses);
-        String avatarUrl = toPublicAvatarUrl(user.getCurrentAvatarUrl());
+        String avatarUrl = toShareSafeAvatarUrl(user.getCurrentAvatarUrl());
 
         return new IdCardResponse(avatarUrl, user.getNickname(), keywords);
     }
 
-    private String toPublicAvatarUrl(String avatarUrl) {
+    private String toShareSafeAvatarUrl(String avatarUrl) {
         if (avatarUrl == null || avatarUrl.isBlank()) {
             return avatarUrl;
         }
-        return gcsStorageService.generatePublicAvatarUrl(avatarUrl);
+        return gcsStorageService.generatePublicAvatarDataUrl(avatarUrl);
     }
 
     /**

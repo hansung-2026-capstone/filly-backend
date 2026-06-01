@@ -1,5 +1,7 @@
 package net.coboogie.diary.service;
 
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +29,9 @@ class GcsStorageServiceTest {
 
     @Mock
     private Storage storage;
+
+    @Mock
+    private Blob blob;
 
     private GcsStorageService sut;
 
@@ -64,5 +69,24 @@ class GcsStorageServiceTest {
                 eq(TimeUnit.HOURS),
                 any(Storage.SignUrlOption.class)
         );
+    }
+
+    @Test
+    @DisplayName("공개 아바타 URL을 public bucket에서 읽어 data URL로 반환한다")
+    void givenPublicAvatarUrl_whenGeneratePublicAvatarDataUrl_thenReadFromPublicBucket() {
+        // given
+        String avatarUrl = "https://storage.googleapis.com/filly-public-media-bucket/avatars/avatar.png";
+        BlobId blobId = BlobId.of("filly-public-media-bucket", "avatars/avatar.png");
+        given(storage.get(blobId)).willReturn(blob);
+        given(blob.exists()).willReturn(true);
+        given(blob.getContentType()).willReturn("image/png");
+        given(blob.getContent()).willReturn("avatar".getBytes());
+
+        // when
+        String dataUrl = sut.generatePublicAvatarDataUrl(avatarUrl);
+
+        // then
+        assertThat(dataUrl).isEqualTo("data:image/png;base64,YXZhdGFy");
+        verify(storage).get(blobId);
     }
 }

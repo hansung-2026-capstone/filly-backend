@@ -168,6 +168,24 @@ public class GcsStorageService {
     }
 
     /**
+     * 공개 아바타 버킷의 GCS 객체를 data URL로 변환한다.
+     * <p>
+     * 사원증 공유 이미지처럼 브라우저 캔버스에 아바타를 그린 뒤 저장하는 흐름에서는
+     * 공개 GCS URL을 직접 로드하면 버킷 CORS 설정에 따라 캔버스가 오염될 수 있다.
+     *
+     * @param blobName 공개 아바타 버킷 내 blob 경로 또는 기존 URL
+     * @return {@code data:<content-type>;base64,...} 형식의 이미지 URL
+     */
+    public String generatePublicAvatarDataUrl(String blobName) {
+        if (!storageEnabled) {
+            log.info("GCS public avatar data URL skipped storageEnabled=false blobName={}", blobName);
+            return generatePublicAvatarUrl(blobName);
+        }
+        String resolvedBlobName = stripBucketPrefix(blobName, publicAvatarBucketName);
+        return createDataUrl(publicAvatarBucketName, resolvedBlobName);
+    }
+
+    /**
      * GCS 객체를 삭제한다.
      * 로컬 환경({@code storage.enabled=false})에서는 실제 삭제를 생략한다.
      *
@@ -206,8 +224,12 @@ public class GcsStorageService {
             return generateSignedUrl(blobName);
         }
         String resolvedBlobName = stripBucketPrefix(blobName);
-        log.info("GCS data URL start bucket={} blobName={}", bucketName, resolvedBlobName);
-        Blob blob = storage.get(BlobId.of(bucketName, resolvedBlobName));
+        return createDataUrl(bucketName, resolvedBlobName);
+    }
+
+    private String createDataUrl(String bucket, String resolvedBlobName) {
+        log.info("GCS data URL start bucket={} blobName={}", bucket, resolvedBlobName);
+        Blob blob = storage.get(BlobId.of(bucket, resolvedBlobName));
         if (blob == null || !blob.exists()) {
             throw new NoSuchElementException("GCS 객체를 찾을 수 없습니다: " + resolvedBlobName);
         }
@@ -216,7 +238,7 @@ public class GcsStorageService {
             contentType = "application/octet-stream";
         }
         String encoded = Base64.getEncoder().encodeToString(blob.getContent());
-        log.info("GCS data URL complete bucket={} blobName={}", bucketName, resolvedBlobName);
+        log.info("GCS data URL complete bucket={} blobName={}", bucket, resolvedBlobName);
         return "data:" + contentType + ";base64," + encoded;
     }
 

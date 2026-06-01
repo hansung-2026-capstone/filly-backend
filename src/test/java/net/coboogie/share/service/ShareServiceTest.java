@@ -48,12 +48,12 @@ class ShareServiceTest {
     private ShareService sut;
 
     @Test
-    @DisplayName("ID 카드 조회 시 아바타는 data URL 대신 공개 URL로 반환한다")
-    void givenAvatarBlobPath_whenGetIdCard_thenReturnPublicAvatarUrl() {
+    @DisplayName("ID 카드 조회 시 아바타는 캔버스 저장을 위해 data URL로 반환한다")
+    void givenAvatarBlobPath_whenGetIdCard_thenReturnAvatarDataUrl() {
         // given
         Long userId = 1L;
         String blobPath = "avatars/avatar.png";
-        String publicUrl = "https://storage.googleapis.com/filly-public-media-bucket/avatars/avatar.png";
+        String dataUrl = "data:image/png;base64,YXZhdGFy";
         UserVO user = UserVO.builder()
                 .id(userId)
                 .oauthProvider("google")
@@ -64,16 +64,16 @@ class ShareServiceTest {
 
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(aiEmotionAnalysisRepository.findByDiary_User_Id(userId)).willReturn(Collections.emptyList());
-        given(gcsStorageService.generatePublicAvatarUrl(blobPath)).willReturn(publicUrl);
+        given(gcsStorageService.generatePublicAvatarDataUrl(blobPath)).willReturn(dataUrl);
 
         // when
         IdCardResponse response = sut.getIdCard(userId);
 
         // then
-        assertThat(response.avatarUrl()).isEqualTo(publicUrl);
+        assertThat(response.avatarUrl()).isEqualTo(dataUrl);
         assertThat(response.nickname()).isEqualTo("tester");
         assertThat(response.keywords()).isEmpty();
-        verify(gcsStorageService).generatePublicAvatarUrl(blobPath);
+        verify(gcsStorageService).generatePublicAvatarDataUrl(blobPath);
         verifyNoMoreInteractions(gcsStorageService);
     }
 }
