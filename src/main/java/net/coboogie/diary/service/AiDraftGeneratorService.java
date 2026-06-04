@@ -184,8 +184,8 @@ public class AiDraftGeneratorService {
     }
 
     /**
-     * 사용자 입력 원본(텍스트/이미지/음성)을 Gemini 멀티모달 입력으로 전달하여 일기 초안을 생성한다.
-     * v2 초안 생성에서는 STT와 BLIP 전처리를 거치지 않는다.
+     * 사용자 입력 원본(텍스트/음성)을 Gemini 입력으로 전달하여 일기 초안을 생성한다.
+     * 이미지는 현재 초안 생성 입력으로 사용하지 않는다.
      */
     public AiDraftResult generateMultimodal(String textContent, List<MultipartFile> images,
                                             MultipartFile voice, LocalDate writtenAt,
@@ -245,7 +245,7 @@ public class AiDraftGeneratorService {
                 %s
 
                 [안내]
-                - 입력된 이미지(사진) 및 음성 데이터를 직접 분석하여 일기 초안과 감정 분석 결과를 도출하세요.
+                - 입력된 음성 데이터를 직접 분석하여 일기 초안과 감정 분석 결과를 도출하세요.
                 """.formatted(
                 writtenAt.format(DATE_FORMATTER),
                 displayPreference(gender),
@@ -279,9 +279,9 @@ public class AiDraftGeneratorService {
 
                 [입력 해석 규칙]
                 - 첨부 오디오는 사용자의 음성 메모입니다. 전사한 뒤 텍스트 메모와 같은 비중으로 사용하세요.
-                - 첨부 이미지는 사용자가 남긴 사진입니다. 사진 속 명확한 장면, 장소, 활동만 일기 단서로 사용하세요.
-                - 이미지나 오디오에서 불확실한 정보는 단정하지 마세요.
-                - 텍스트, 오디오, 이미지를 종합해 기존 응답 JSON 스키마와 동일하게 반환하세요.
+                - 첨부 이미지는 초안 생성 입력으로 사용하지 않습니다.
+                - 오디오에서 불확실한 정보는 단정하지 마세요.
+                - 텍스트와 오디오를 종합해 기존 응답 JSON 스키마와 동일하게 반환하세요.
 
                 [텍스트 메모]
                 %s
