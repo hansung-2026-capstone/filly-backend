@@ -93,8 +93,8 @@ class AiDraftGeneratorServiceIntegrationTest {
     }
 
     @Test
-    @DisplayName("이미지 캡션과 텍스트를 함께 입력하면 결합된 일기 초안을 반환한다")
-    void givenTextAndCaptions_whenGenerate_thenReturnCombinedDraft() {
+    @DisplayName("텍스트 입력과 첨부 이미지가 함께 있어도 텍스트 기반 일기 초안을 반환한다")
+    void givenTextAndImages_whenGenerate_thenReturnTextBasedDraft() {
         // given
         MultipartFile mockImage1 = new MockMultipartFile("images", "cafe1.jpg", "image/jpeg", "dummy-image-1".getBytes());
         MultipartFile mockImage2 = new MockMultipartFile("images", "cafe2.jpg", "image/jpeg", "dummy-image-2".getBytes());
@@ -111,7 +111,7 @@ class AiDraftGeneratorServiceIntegrationTest {
         );
 
         // then
-        System.out.println("=== Gemini 응답 (텍스트 + 캡션) ===");
+        System.out.println("=== Gemini 응답 (텍스트 기반) ===");
         System.out.println("일기: " + result.generatedText());
         System.out.println("감정: " + result.emotions());
         System.out.println("요약: " + result.moodSummary());
