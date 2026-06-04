@@ -36,7 +36,7 @@ class AiDraftGeneratorServiceTest {
                 .contains("성별과 나이대는 본문에 직접 언급하지 마세요")
                 .contains("emotions, happinessIndex, activities, places, people, iabCategories, patterns")
                 .contains("입력 내용 기준으로만 판단하세요")
-                .contains("입력된 이미지(사진) 및 음성 데이터를 직접 분석하여");
+                .contains("입력된 음성 데이터를 직접 분석하여");
     }
 
     @Test
