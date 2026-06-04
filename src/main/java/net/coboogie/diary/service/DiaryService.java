@@ -61,11 +61,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DiaryService {
 
-    private static final int MAX_DRAFT_IMAGE_COUNT = 4;
     private static final int SIGNED_URL_PARALLELISM = 4;
     private static final long MAX_DRAFT_VOICE_DURATION_MS = 60_000L;
-    private static final List<String> SUPPORTED_DRAFT_IMAGE_TYPES =
-            List.of("image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif");
     private static final List<String> SUPPORTED_DRAFT_AUDIO_TYPES =
             List.of("audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/flac",
                     "audio/ogg", "audio/webm", "audio/mp4", "audio/m4a", "audio/x-m4a", "audio/aac");
@@ -530,16 +527,17 @@ public class DiaryService {
 
     /**
      * 사용자 입력(텍스트/이미지/음성)을 받아 AI 일기 초안을 생성한다.
+     * 이미지는 AI 입력으로 사용하지 않고 저장 확인용 URL만 반환한다.
      * <p>
      * 처리 순서:
      * 1. 입력값 유효성 검사 (하나 이상 필수)
      * 2. 이미지가 있으면 GCS에 업로드하여 URL 목록 확보
-     * 3. Gemini로 일기 초안 및 감정 분석 생성
+     * 3. Gemini로 텍스트/음성 기반 일기 초안 및 감정 분석 생성
      * 4. 결과 반환 (DB 저장 없음 — 사용자 확인 후 {@code POST /diaries}로 최종 저장)
      *
      * @param command 사용자 ID, 텍스트/이미지/음성, 날짜, 모드를 담은 커맨드 객체
      * @return AI 생성 초안 텍스트, 감정 분석, 업로드된 미디어 URL 목록
-     * @throws IllegalArgumentException 텍스트·이미지·음성이 모두 없는 경우
+     * @throws IllegalArgumentException 텍스트·음성이 모두 없는 경우
      */
     public DiaryDraftResponse createDraft(DiaryDraftCommand command) {
         validateInput(command);
@@ -578,12 +576,12 @@ public class DiaryService {
     }
 
     /**
-     * STT/BLIP 전처리 없이 텍스트·이미지·음성 원본을 Gemini 멀티모달 입력으로 전달해 초안을 생성한다.
-     * v1과 동일하게 이미지 URL은 저장 확인 화면에서 사용할 수 있도록 GCS signed URL로 반환한다.
+     * STT 전처리 없이 텍스트·음성 원본을 Gemini 입력으로 전달해 초안을 생성한다.
+     * 이미지는 AI 입력으로 사용하지 않고, v2에서는 업로드하지 않는다.
      */
     public DiaryDraftResponse createDraftV2(DiaryDraftCommand command) {
-        validateInput(command);
-        validateDraftV2Attachments(command.images(), command.voice());
+        validateDraftV2Input(command);
+        validateDraftV2Voice(command.voice());
         UserVO user = userRepository.findById(command.userId())
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + command.userId()));
         int imageCount = command.images() == null ? 0 : command.images().size();
@@ -592,13 +590,6 @@ public class DiaryService {
         long startedAt = System.currentTimeMillis();
         log.info("AI draft v2 start userId={} writtenAt={} hasText={} imageCount={} hasVoice={}",
                 command.userId(), command.writtenAt(), hasText, imageCount, hasVoice);
-
-        if (!hasText && !hasVoice) {
-            log.info("AI draft v2 skipped because only images were provided userId={} imageCount={} elapsedMs={}",
-                    command.userId(), imageCount,
-                    System.currentTimeMillis() - startedAt);
-            return new DiaryDraftResponse("", null, Collections.emptyList());
-        }
 
         long aiStartedAt = System.currentTimeMillis();
         String generatedText = aiDraftGeneratorService.generateDraftTextMultimodal(
@@ -636,7 +627,7 @@ public class DiaryService {
     }
 
     /**
-     * 텍스트·이미지·음성 중 하나 이상이 존재하는지 검사한다.
+     * 텍스트·음성 중 하나 이상이 존재하는지 검사한다.
      * 공백만 있는 텍스트는 입력 없음으로 취급한다.
      */
     private void validateInput(DiaryDraftCommand command) {
@@ -646,22 +637,20 @@ public class DiaryService {
         boolean hasVoice = command.voice() != null && !command.voice().isEmpty();
 
         if (!hasText && !hasImages && !hasVoice) {
-            throw new IllegalArgumentException("텍스트, 이미지, 음성 중 하나 이상 입력해야 합니다.");
+            throw new IllegalArgumentException("텍스트 또는 음성 중 하나 이상 입력해야 합니다.");
         }
     }
 
-    private void validateDraftV2Attachments(List<MultipartFile> images, MultipartFile voice) {
-        if (images != null) {
-            List<MultipartFile> nonEmptyImages = images.stream()
-                    .filter(image -> image != null && !image.isEmpty())
-                    .toList();
-            if (nonEmptyImages.size() > MAX_DRAFT_IMAGE_COUNT) {
-                throw new IllegalArgumentException("이미지는 최대 4장까지 첨부할 수 있습니다.");
-            }
-            for (MultipartFile image : nonEmptyImages) {
-                validateContentType(image, SUPPORTED_DRAFT_IMAGE_TYPES, "지원하지 않는 이미지 형식입니다.");
-            }
+    private void validateDraftV2Input(DiaryDraftCommand command) {
+        boolean hasText = command.textContent() != null && !command.textContent().isBlank();
+        boolean hasVoice = command.voice() != null && !command.voice().isEmpty();
+
+        if (!hasText && !hasVoice) {
+            throw new IllegalArgumentException("AI 초안 생성에는 텍스트 또는 음성이 필요합니다.");
         }
+    }
+
+    private void validateDraftV2Voice(MultipartFile voice) {
         if (voice != null && !voice.isEmpty()) {
             validateContentType(voice, SUPPORTED_DRAFT_AUDIO_TYPES, "지원하지 않는 음성 형식입니다.");
             validateVoiceDuration(voice);
