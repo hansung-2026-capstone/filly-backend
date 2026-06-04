@@ -36,12 +36,13 @@ public class DiaryV2Controller {
 
     /**
      * AI 일기 초안 생성 API v2.
-     * STT/BLIP 전처리 없이 텍스트·이미지·음성을 Gemini 멀티모달 입력으로 전달한다.
+     * STT 전처리 없이 텍스트·음성을 Gemini 입력으로 전달한다.
+     * 이미지는 AI 입력으로 사용하지 않는다.
      */
     @PostMapping(value = "/draft", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "AI 일기 초안 생성 v2",
-            description = "텍스트, 최대 4장 이미지, 최대 60초 음성을 받아 Gemini 멀티모달 입력으로 일기 초안을 생성합니다."
+            description = "텍스트와 최대 60초 음성을 받아 Gemini 입력으로 일기 초안을 생성합니다. 이미지는 AI 입력으로 사용하지 않으며, 이미지만으로는 초안을 생성할 수 없습니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "초안 생성 성공"),
