@@ -10,7 +10,7 @@ import java.util.List;
  * {@code POST /api/v1/diaries/draft} 요청을 서비스 레이어로 전달하기 위한 커맨드 객체.
  * <p>
  * 컨트롤러에서 {@code @RequestPart} 파라미터들을 조합하여 생성하며,
- * 텍스트·이미지·음성 중 하나 이상이 반드시 존재해야 한다.
+ * 텍스트·음성 중 하나 이상이 반드시 존재해야 한다.
  */
 @Builder
 public record DiaryDraftCommand(
