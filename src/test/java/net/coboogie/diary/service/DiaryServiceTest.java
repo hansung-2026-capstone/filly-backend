@@ -140,7 +140,7 @@ class DiaryServiceTest {
         verifyNoInteractions(aiDraftGeneratorService);
     }
     @Test
-    @DisplayName("v2 텍스트만 입력 시 STT와 BLIP 없이 멀티모달 AI 초안 반환")
+    @DisplayName("v2 텍스트만 입력 시 STT 없이 AI 초안 반환")
     void givenTextOnlyInput_whenCreateDraftV2_thenUseMultimodalGeneratorWithoutPreprocessing() {
         // given
         DiaryDraftCommand command = DiaryDraftCommand.builder()
@@ -187,8 +187,8 @@ class DiaryServiceTest {
     }
 
     @Test
-    @DisplayName("v2 image-only draft skips AI and image upload")
-    void givenOnlyImagesProvided_whenCreateDraftV2_thenSkipAiAndReturnEmptyMediaUrls() {
+    @DisplayName("v2 이미지만 입력하면 초안 생성 불가")
+    void givenOnlyImagesProvided_whenCreateDraftV2_thenThrowIllegalArgumentException() {
         // given
         MockMultipartFile image = new MockMultipartFile(
                 "images", "photo.jpg", "image/jpeg", "fake-image".getBytes());
@@ -197,21 +197,15 @@ class DiaryServiceTest {
                 .images(List.of(image))
                 .writtenAt(WRITTEN_AT)
                 .build();
-        UserVO mockUser = UserVO.builder().id(1L).oauthProvider("google").oauthId("abc").build();
-        given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
-
-        // when
-        DiaryDraftResponse response = sut.createDraftV2(command);
-
-        // then
-        assertThat(response.generatedText()).isEmpty();
-        assertThat(response.aiAnalysis()).isNull();
-        assertThat(response.mediaUrls()).isEmpty();
-        verifyNoInteractions(gcsStorageService, aiDraftGeneratorService);
+        // when & then
+        assertThatThrownBy(() -> sut.createDraftV2(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("텍스트 또는 음성");
+        verifyNoInteractions(userRepository, gcsStorageService, aiDraftGeneratorService);
     }
     @Test
-    @DisplayName("v2 이미지는 최대 4장까지만 허용한다")
-    void givenTooManyImages_whenCreateDraftV2_thenThrowIllegalArgumentException() {
+    @DisplayName("v2 이미지는 초안 입력 검증 대상이 아니다")
+    void givenTooManyImagesWithText_whenCreateDraftV2_thenIgnoreImagesForDraftValidation() {
         // given
         List<MultipartFile> images = List.of(
                 new MockMultipartFile("images", "1.jpg", "image/jpeg", "1".getBytes()),
@@ -222,19 +216,29 @@ class DiaryServiceTest {
         );
         DiaryDraftCommand command = DiaryDraftCommand.builder()
                 .userId(1L)
+                .textContent("오늘은 날씨가 좋았다")
                 .images(images)
                 .writtenAt(WRITTEN_AT)
                 .build();
+        UserVO mockUser = UserVO.builder().id(1L).oauthProvider("google").oauthId("abc").build();
+        given(userRepository.findById(1L)).willReturn(Optional.of(mockUser));
+        given(aiDraftGeneratorService.generateDraftTextMultimodal(anyString(), any(), any(), any(), any(), any(), any()))
+                .willReturn("오늘은 날씨가 좋아 마음이 가벼웠다.");
 
-        // when & then
-        assertThatThrownBy(() -> sut.createDraftV2(command))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("최대 4장");
-        verifyNoInteractions(userRepository, gcsStorageService, aiDraftGeneratorService);
+        // when
+        DiaryDraftResponse response = sut.createDraftV2(command);
+
+        // then
+        assertThat(response.generatedText()).isEqualTo("오늘은 날씨가 좋아 마음이 가벼웠다.");
+        assertThat(response.mediaUrls()).isEmpty();
+        verify(aiDraftGeneratorService).generateDraftTextMultimodal(
+                eq("오늘은 날씨가 좋았다"), isNull(), isNull(), eq(WRITTEN_AT),
+                eq("none"), eq("none"), eq("none"));
+        verifyNoInteractions(gcsStorageService);
     }
 
     @Test
-    @DisplayName("텍스트, 이미지, 음성 모두 없으면 IllegalArgumentException 발생")
+    @DisplayName("텍스트와 음성이 모두 없으면 IllegalArgumentException 발생")
     void givenNoInput_whenCreateDraft_thenThrowIllegalArgumentException() {
         // given
         DiaryDraftCommand command = DiaryDraftCommand.builder()
@@ -245,7 +249,7 @@ class DiaryServiceTest {
         // when & then
         assertThatThrownBy(() -> sut.createDraft(command))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("텍스트, 이미지, 음성");
+                .hasMessageContaining("텍스트 또는 음성");
 
         verifyNoInteractions(gcsStorageService, aiDraftGeneratorService);
     }
