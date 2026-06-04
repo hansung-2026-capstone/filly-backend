@@ -56,7 +56,8 @@ public class DiaryController {
 	/**
 	 * AI 일기 초안 생성 API.
 	 * <p>
-	 * 텍스트·이미지·음성을 Multipart 형식으로 받아 AI 일기 초안을 생성한다.
+	 * 텍스트·음성을 Multipart 형식으로 받아 AI 일기 초안을 생성한다.
+	 * 이미지는 AI 입력으로 사용하지 않고 저장 확인용 URL만 반환한다.
 	 * 초안은 DB에 저장되지 않으므로, 사용자가 확인 후 {@code POST /api/v1/diaries}로 최종 저장해야 한다.
 	 *
 	 * @param userId    JWT에서 추출한 인증 사용자 ID
@@ -68,8 +69,9 @@ public class DiaryController {
 	@PostMapping(value = "/draft", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@Operation(
 			summary = "AI 일기 초안 생성",
-			description = "텍스트, 이미지, 음성을 받아 AI가 일기 초안을 생성합니다. " +
-					"세 가지 입력 중 하나 이상 필요합니다. 초안 확인 후 POST /api/v1/diaries로 최종 저장하세요."
+				description = "텍스트와 음성을 받아 AI가 일기 초안을 생성합니다. " +
+						"이미지는 AI 입력으로 사용하지 않고 저장 확인용 URL만 반환합니다. " +
+						"세 가지 입력 중 하나 이상 필요합니다. 초안 확인 후 POST /api/v1/diaries로 최종 저장하세요."
 	)
 	@ApiResponses({
 			@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "초안 생성 성공"),
