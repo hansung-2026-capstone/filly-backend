@@ -200,7 +200,8 @@ public class RecommendationService {
     public RecommendationShuffleResponse shuffle(Long userId, Long drawId) {
         lockUser(userId);
         RecommendationDrawVO draw = findDrawForUpdate(userId, drawId);
-        validateDailyShuffleLimit(userId);
+        // Temporarily disabled for manual recommendation QA.
+        // validateDailyShuffleLimit(userId);
         if (draw.getStatus() != RecommendationDrawVO.Status.ACTIVE) {
             throw new IllegalArgumentException("진행 중인 추천 뽑기 세션이 아닙니다.");
         }
