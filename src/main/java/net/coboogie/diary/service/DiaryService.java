@@ -128,6 +128,7 @@ public class DiaryService {
             scheduleAnalysisAfterCommitIfAnalyzable(saved.getId(), command, user);
         } else {
             saveEmotionAnalysis(saved, aiAnalysis);
+            invalidateMonthlyStat(command.userId(), saved.getWrittenAt());
         }
         if (command.generatedText() != null && !command.generatedText().isBlank()) {
             aiDiaryResultRepository.save(AiDiaryResultVO.builder()
@@ -135,8 +136,6 @@ public class DiaryService {
                     .generatedText(command.generatedText())
                     .build());
         }
-
-        invalidateMonthlyStat(command.userId(), saved.getWrittenAt());
 
         return DiaryResponse.from(saved, gcsStorageService::generateSignedUrl);
     }
@@ -198,6 +197,7 @@ public class DiaryService {
                 diaryId,
                 command.rawContent(),
                 command.writtenAt(),
+                user.getId(),
                 user.getGender(),
                 user.getAgeGroup(),
                 user.getAiDraftTone()

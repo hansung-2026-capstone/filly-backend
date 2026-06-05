@@ -311,13 +311,14 @@ class DiaryServiceTest {
                 eq(10L),
                 eq("오늘 날씨가 맑았다."),
                 eq(WRITTEN_AT),
+                eq(1L),
                 eq("none"),
                 eq("none"),
                 eq("none"));
         verify(aiDraftGeneratorService, never()).generate(any(), anyList(), any(), any(), any(), any(), any());
         verify(aiEmotionAnalysisRepository, never()).save(any(AiEmotionAnalysisVO.class));
         verify(aiDiaryResultRepository, never()).save(any());
-        verify(monthlyStatRepository).deleteByUserIdAndRecordMonth(userId, "2026-04");
+        verify(monthlyStatRepository, never()).deleteByUserIdAndRecordMonth(anyLong(), anyString());
     }
 
     @Test

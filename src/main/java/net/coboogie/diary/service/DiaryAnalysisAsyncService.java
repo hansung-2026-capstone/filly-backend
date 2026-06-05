@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.coboogie.diary.dto.DiaryDraftResponse;
 import net.coboogie.diary.repository.AiEmotionAnalysisRepository;
 import net.coboogie.diary.repository.DiaryEntryRepository;
+import net.coboogie.stat.repository.MonthlyStatRepository;
 import net.coboogie.vo.AiEmotionAnalysisVO;
 import net.coboogie.vo.DiaryEntryVO;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 
 /**
  * 저장 응답을 지연시키지 않도록 일기 AI 분석을 비동기로 처리한다.
@@ -27,6 +29,7 @@ public class DiaryAnalysisAsyncService {
     private final AiDraftGeneratorService aiDraftGeneratorService;
     private final DiaryEntryRepository diaryEntryRepository;
     private final AiEmotionAnalysisRepository aiEmotionAnalysisRepository;
+    private final MonthlyStatRepository monthlyStatRepository;
     @Qualifier("aiObjectMapper")
     private final ObjectMapper objectMapper;
 
@@ -35,7 +38,7 @@ public class DiaryAnalysisAsyncService {
      */
     @Async
     @Transactional
-    public void analyzeAndSaveAsync(Long diaryId, String rawContent, LocalDate writtenAt,
+    public void analyzeAndSaveAsync(Long diaryId, String rawContent, LocalDate writtenAt, Long userId,
                                     String gender, String ageGroup, String aiDraftTone) {
         long startedAt = System.currentTimeMillis();
         try {
@@ -51,6 +54,7 @@ public class DiaryAnalysisAsyncService {
                     aiDraftTone
             );
             saveEmotionAnalysis(diary, analysis);
+            invalidateMonthlyStat(userId, writtenAt);
             log.info("일기 AI 분석 비동기 저장 완료: diaryId={} elapsedMs={}",
                     diaryId, System.currentTimeMillis() - startedAt);
         } catch (Exception e) {
@@ -76,5 +80,12 @@ public class DiaryAnalysisAsyncService {
         } catch (JsonProcessingException e) {
             log.warn("감정 분석 직렬화 실패: diaryId={}", diary.getId(), e);
         }
+    }
+
+    private void invalidateMonthlyStat(Long userId, LocalDate writtenAt) {
+        if (userId == null || writtenAt == null) {
+            return;
+        }
+        monthlyStatRepository.deleteByUserIdAndRecordMonth(userId, YearMonth.from(writtenAt).toString());
     }
 }
